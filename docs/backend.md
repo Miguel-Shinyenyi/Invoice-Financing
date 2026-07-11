@@ -6,11 +6,17 @@ Describes the Spring Boot service: its structure, API endpoints, and how it enfo
 
 ## Current state
 
-Phase 1 core engine endpoints are built (`com.settlementengine.core.api`):
+Phase 1 core engine endpoints are built (`com.settlementengine.core.api`). All of them (except `/auth/**`, see below) now require a valid JWT `Authorization: Bearer` header as of Phase 2 — see `security.md`.
 
-- `POST /settlements` - creates a settlement. Requires an `Idempotency-Key` header (UUID). Body: `sourceAccountId`, `destinationAccountId`, `amount`, `currency`. Returns `201` with the settlement (including terminal status) on first processing, or the identical cached result on a retried duplicate. Returns `400` for a missing/malformed header or invalid body, `404` if either account doesn't exist, `422` for currency mismatch, self-settlement, or insufficient balance, `409` if the same key is currently mid-flight or was reused with a different payload.
-- `GET /settlements/{id}` - returns settlement status and state, `404` if not found.
-- `GET /accounts/{id}` - returns ledger account details and balance, `404` if not found.
+- `POST /settlements` - creates a settlement. Requires `ADMIN` or `SUPPORT` role (`@PreAuthorize`), plus an `Idempotency-Key` header (UUID). Body: `sourceAccountId`, `destinationAccountId`, `amount`, `currency`. Returns `201` with the settlement (including terminal status) on first processing, or the identical cached result on a retried duplicate. Returns `400` for a missing/malformed header or invalid body, `401` if unauthenticated, `403` if authenticated but not `ADMIN`/`SUPPORT`, `404` if either account doesn't exist, `422` for currency mismatch, self-settlement, or insufficient balance, `409` if the same key is currently mid-flight or was reused with a different payload.
+- `GET /settlements/{id}` - returns settlement status and state. `404` if not found, `401` if unauthenticated, `403` if a `READ_ONLY` user doesn't own either side of the settlement (see `security.md`'s row-level permissions).
+- `GET /accounts/{id}` - returns ledger account details and balance. `404` if not found, `401` if unauthenticated, `403` if a `READ_ONLY` user doesn't own the account.
+
+### Auth endpoints (built, Phase 2)
+
+- `POST /auth/login` - body: `username`, `password`. Returns `200` with `{accessToken, refreshToken, tokenType}`, `401` for any invalid-credentials case (unknown username or wrong password get the identical response and message, deliberately, to avoid leaking which one failed).
+- `POST /auth/refresh` - body: `refreshToken`. Rotates the refresh token (old one revoked, new one issued) and returns a new access token alongside it. `401` if the token is unknown, expired, or already used.
+- `POST /auth/logout` - body: `refreshToken`. Revokes it. `204` regardless of whether the token was already invalid (idempotent).
 
 Internally, the request flow is split across two collaborating beans, not one:
 
@@ -45,7 +51,7 @@ Planned for Phase 5, invoice financing:
 | 2026-07-11 | Orchestration (`SettlementService`) and transactional persistence (`SettlementTransactions`) split into two beans | Spring's `@Transactional` proxy is bypassed on self-invocation; without the split, the transaction boundaries required by `reconciliation.md` would be silently unenforced |
 | 2026-07-11 | Race-fallback catches `DataAccessException`, not just `DataIntegrityViolationException` | Concurrent inserts for the same idempotency key were observed under Testcontainers to sometimes surface as a Postgres deadlock (`CannotAcquireLockException`) instead of a clean unique-constraint violation; both mean the same thing (someone else claimed this key first) and both must be handled |
 | 2026-07-11 | `finalizeSettlement` gets a bounded retry (5 attempts, short backoff) on `TransientDataAccessException`, separate from the insert-race fallback | Found empirically: the winning thread's terminal-state update can deadlock against losing transactions still holding an FK-check share lock on the same `idempotency_keys` row. This is transient and safe to retry on its own, unlike the insert race, which is resolved by reading the winner instead of retrying |
-| 2026-07-11 | Exceptions mapped centrally in `GlobalExceptionHandler`: not-found → 404, currency/self-settlement/balance validation → 422, idempotency conflicts → 409, request validation → 400 | One place decides HTTP semantics for domain errors instead of scattering status codes across controllers |
+| 2026-07-11 | Exceptions mapped centrally in `GlobalExceptionHandler`: not-found → 404, currency/self-settlement/balance validation → 422, idempotency conflicts → 409, request validation → 400, `BadCredentialsException`/`InvalidTokenException` → 401 | One place decides HTTP semantics for domain errors instead of scattering status codes across controllers. `AccessDeniedException` (role/row-level denials) deliberately is *not* handled here — it's left to Spring Security's own `ExceptionTranslationFilter` and the custom `AccessDeniedHandler` in `SecurityConfig`, so both AOP-level (`@PreAuthorize`) and in-method (`RowLevelAccessGuard`) denials produce the same 403 shape |
 | 2026-07-11 | REST over GraphQL for v1 | Simpler to secure and test for a first pass, GraphQL can be added later if the frontend needs it |
 
 ## Open questions

@@ -1,6 +1,8 @@
 spring:
   application:
     name: settlement-engine
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
   datasource:
     url: ${SETTLEMENT_DB_URL:jdbc:postgresql://localhost:5432/settlement_engine}
     username: ${SETTLEMENT_DB_USER:settlement_engine}
@@ -12,3 +14,10 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+
+settlement-engine:
+  jwt:
+    secret: ${JWT_SECRET:dev-only-insecure-secret-change-me-0123456789abcdef}
+    access-token-ttl-seconds: ${JWT_ACCESS_TOKEN_TTL_SECONDS:900}
+  refresh-token:
+    ttl-days: ${REFRESH_TOKEN_TTL_DAYS:30}

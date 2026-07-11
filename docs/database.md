@@ -6,7 +6,7 @@ Describes the Postgres schema, migrations, and indexing decisions for the settle
 
 ## Current state
 
-Phase 1 core engine tables are built and migrated via Flyway (`V1__init_core_schema.sql`). Reconciliation, audit, and invoice financing tables are not yet built.
+Phase 1 core engine tables and Phase 2 security tables are built and migrated via Flyway (`V1__init_core_schema.sql`, `V2__security_and_access_control.sql`). Reconciliation and invoice financing tables are not yet built.
 
 ### Core engine tables (built, Phase 1)
 
@@ -17,16 +17,24 @@ Phase 1 core engine tables are built and migrated via Flyway (`V1__init_core_sch
 
 Ledger entries follow double-entry bookkeeping: a settlement only produces ledger entries once it reaches `CONFIRMED` (two entries, debit source + credit destination, net zero). `PENDING`, `FAILED`, and `UNKNOWN` settlements never touch the ledger. All entity IDs (`UUID`) are generated in application code, not by the database, so no `pgcrypto`/`uuid-ossp` extension is required.
 
+### Security tables (built, Phase 2)
+
+- `users`: id, username (unique), password_hash (BCrypt), role (`ADMIN`, `SUPPORT`, `READ_ONLY`), owner_id (nullable UUID), created_at. `owner_id` links a `READ_ONLY` user to the `ledger_accounts.owner_id` they're allowed to see; `NULL` for `ADMIN`/`SUPPORT`, who aren't row-restricted.
+- `refresh_tokens`: id, user_id (FK), token_hash (SHA-256 hex, unique — the raw token is never stored), expires_at, revoked_at (nullable), created_at; indexed on `user_id`.
+- `audit_log`: id, actor_id (nullable — unauthenticated attempts have no actor), action, target_table, target_id, outcome (`SUCCESS`, `DENIED`, `FAILURE`), created_at; indexed on `actor_id`.
+
 ### Not yet built
 
 - `reconciliation_runs`, `reconciliation_mismatches` (Phase 4)
-- `audit_log` (Phase 2, alongside security work)
 - `invoices`, `advances` (Phase 5)
 
 ## Decisions log
 
 | Date | Decision | Reason |
 |------|----------|--------|
+| 2026-07-11 | `audit_log` gets an `outcome` column (`SUCCESS`/`DENIED`/`FAILURE`) not in the original sketch | `security.md` requires logging attempts "successful or not" — without an outcome field there's no way to tell a denied attempt from a successful one, defeating the stated purpose |
+| 2026-07-11 | `refresh_tokens.token_hash` stores a SHA-256 hex digest, never the raw token | Same principle as password hashing: a stolen database dump must not hand out usable credentials. Matches the existing `request_hash` pattern already used for idempotency keys |
+| 2026-07-11 | `users.owner_id` is nullable, not a required FK to a business/owner table | There's no separate business/owner entity in the schema yet — `owner_id` is just the UUID already used in `ledger_accounts.owner_id`. Nullable because staff roles (`ADMIN`, `SUPPORT`) aren't tied to a single owner |
 | 2026-07-11 | Currency columns are `VARCHAR(3)`, not `CHAR(3)` | Hibernate's schema validation (`ddl-auto: validate`) expects `VARCHAR` for a mapped `String` column by default; `CHAR(3)` caused a validation failure on startup against a real Postgres instance, caught by the Testcontainers integration tests |
 | 2026-07-11 | `idempotency_keys` as its own table with a unique constraint on `key` | Database-level uniqueness is the actual enforcement mechanism, application-level checks alone have a race window |
 | 2026-07-11 | `settlements.status` includes `UNKNOWN` as a valid state, not just a transient one | Matches the state machine in `reconciliation.md`, the schema should not force a premature confident state |

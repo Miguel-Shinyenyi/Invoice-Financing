@@ -1,12 +1,8 @@
 package com.settlementengine.core.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.settlementengine.core.util.Sha256;
 import org.springframework.stereotype.Component;
-
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
 
 @Component
 public class RequestHasher {
@@ -20,10 +16,8 @@ public class RequestHasher {
     public String hash(CreateSettlementCommand command) {
         try {
             String canonicalJson = objectMapper.writeValueAsString(command);
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hashed = digest.digest(canonicalJson.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(hashed);
-        } catch (NoSuchAlgorithmException | com.fasterxml.jackson.core.JsonProcessingException e) {
+            return Sha256.hex(canonicalJson);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
             throw new IllegalStateException("Unable to hash settlement request", e);
         }
     }
