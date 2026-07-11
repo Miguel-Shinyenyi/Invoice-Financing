@@ -12,8 +12,10 @@ import com.settlementengine.core.domain.LedgerEntry;
 import com.settlementengine.core.domain.SelfSettlementException;
 import com.settlementengine.core.domain.Settlement;
 import com.settlementengine.core.domain.SettlementStatus;
+import com.settlementengine.core.events.KafkaTopics;
 import com.settlementengine.core.gateway.SettlementExecutionRequest;
 import com.settlementengine.core.gateway.SettlementOutcome;
+import com.settlementengine.core.outbox.OutboxWriter;
 import com.settlementengine.core.repository.IdempotencyKeyRepository;
 import com.settlementengine.core.repository.LedgerAccountRepository;
 import com.settlementengine.core.repository.LedgerEntryRepository;
@@ -32,6 +34,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -48,6 +51,8 @@ class SettlementTransactionsTest {
     private LedgerEntryRepository ledgerEntryRepository;
     @Mock
     private IdempotencyKeyRepository idempotencyKeyRepository;
+    @Mock
+    private OutboxWriter outboxWriter;
 
     private SettlementTransactions settlementTransactions;
 
@@ -60,7 +65,8 @@ class SettlementTransactionsTest {
     void setUp() {
         ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
         settlementTransactions = new SettlementTransactions(
-                ledgerAccountRepository, settlementRepository, ledgerEntryRepository, idempotencyKeyRepository, objectMapper);
+                ledgerAccountRepository, settlementRepository, ledgerEntryRepository, idempotencyKeyRepository,
+                objectMapper, outboxWriter);
 
         sourceId = UUID.randomUUID();
         destinationId = UUID.randomUUID();
@@ -137,6 +143,8 @@ class SettlementTransactionsTest {
         verify(settlementRepository).save(settlementCaptor.capture());
         assertThat(settlementCaptor.getValue().getStatus()).isEqualTo(SettlementStatus.PENDING);
         assertThat(settlementCaptor.getValue().getIdempotencyKey()).isEqualTo(idempotencyKey);
+
+        verify(outboxWriter).write(eq("SETTLEMENT"), any(), eq(KafkaTopics.SETTLEMENT_REQUESTED), any());
     }
 
     @Test
@@ -167,6 +175,8 @@ class SettlementTransactionsTest {
 
         assertThat(key.getStatus()).isEqualTo(IdempotencyKeyStatus.COMPLETED);
         assertThat(key.getResponseSnapshot()).contains("CONFIRMED");
+
+        verify(outboxWriter).write(eq("SETTLEMENT"), eq(settlementId), eq(KafkaTopics.SETTLEMENT_CONFIRMED), any());
     }
 
     @Test
@@ -186,6 +196,8 @@ class SettlementTransactionsTest {
         verify(ledgerEntryRepository, never()).save(any());
         verify(ledgerAccountRepository, never()).save(any());
         assertThat(key.getStatus()).isEqualTo(IdempotencyKeyStatus.COMPLETED);
+
+        verify(outboxWriter).write(eq("SETTLEMENT"), eq(settlementId), eq(KafkaTopics.SETTLEMENT_FAILED), any());
     }
 
     @Test
@@ -203,5 +215,7 @@ class SettlementTransactionsTest {
 
         assertThat(result.status()).isEqualTo(SettlementStatus.UNKNOWN);
         verify(ledgerEntryRepository, never()).save(any());
+
+        verify(outboxWriter).write(eq("SETTLEMENT"), eq(settlementId), eq(KafkaTopics.SETTLEMENT_UNKNOWN), any());
     }
 }

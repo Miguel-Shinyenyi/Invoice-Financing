@@ -6,7 +6,7 @@ Describes the Postgres schema, migrations, and indexing decisions for the settle
 
 ## Current state
 
-Phase 1 core engine tables and Phase 2 security tables are built and migrated via Flyway (`V1__init_core_schema.sql`, `V2__security_and_access_control.sql`). Reconciliation and invoice financing tables are not yet built.
+Phase 1 core engine tables, Phase 2 security tables, and Phase 3 event-driven tables are built and migrated via Flyway (`V1__init_core_schema.sql`, `V2__security_and_access_control.sql`, `V3__event_driven_layer.sql`). Reconciliation and invoice financing tables are not yet built.
 
 ### Core engine tables (built, Phase 1)
 
@@ -22,6 +22,11 @@ Ledger entries follow double-entry bookkeeping: a settlement only produces ledge
 - `users`: id, username (unique), password_hash (BCrypt), role (`ADMIN`, `SUPPORT`, `READ_ONLY`), owner_id (nullable UUID), created_at. `owner_id` links a `READ_ONLY` user to the `ledger_accounts.owner_id` they're allowed to see; `NULL` for `ADMIN`/`SUPPORT`, who aren't row-restricted.
 - `refresh_tokens`: id, user_id (FK), token_hash (SHA-256 hex, unique — the raw token is never stored), expires_at, revoked_at (nullable), created_at; indexed on `user_id`.
 - `audit_log`: id, actor_id (nullable — unauthenticated attempts have no actor), action, target_table, target_id, outcome (`SUCCESS`, `DENIED`, `FAILURE`), created_at; indexed on `actor_id`.
+
+### Event-driven layer tables (built, Phase 3)
+
+- `outbox_events`: id, aggregate_type, aggregate_id, topic, payload (text, JSON), created_at, published_at (nullable). Partial index on `created_at` where `published_at is null`, for efficient polling of the unpublished backlog. Written in the same transaction as the settlement state change it represents (see `reconciliation.md`/`kafka-events.md` for why); a separate scheduled process (`OutboxPublisher`) reads it and marks rows published after a confirmed Kafka send.
+- `settlement_read_model`: settlement_id (PK), source_account_id, destination_account_id, amount, currency, status, updated_at. A CQRS read side populated by `SettlementEventConsumer` off Kafka, not queried by any endpoint yet (no dashboard exists to read it — it exists to prove the event flow is correct, verified via tests and manual end-to-end checks).
 
 ### Not yet built
 

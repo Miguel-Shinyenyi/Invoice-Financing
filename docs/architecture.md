@@ -6,16 +6,16 @@ Describes how the system's components connect and how data flows between them, w
 
 ## Current state
 
-Phase 1 core loop (steps 1-5 below, minus the Kafka publishes) is built and integration-tested end to end. Steps 6-10 are not yet built.
+Steps 1-5 and 8 below are built and integration-tested end to end (including against a real Kafka broker via Testcontainers, and manually against a running instance). Steps 6, 7, 9, 10 are not yet built.
 
 1. Client sends a settlement request to the Spring Boot API (`POST /settlements`) with an `Idempotency-Key` header. Built.
 2. API checks the idempotency key via `SettlementTransactions.findExisting`. If already processed, returns the stored result immediately; if mid-flight, returns 409. Built.
-3. If new, `SettlementTransactions.createPendingSettlement` writes a `PENDING` settlement and the idempotency key in one transaction. Built. The `settlement.requested` Kafka publish is not yet built (Phase 3).
+3. If new, `SettlementTransactions.createPendingSettlement` writes a `PENDING` settlement and the idempotency key in one transaction, plus an `outbox_events` row for `settlement.requested` in that same transaction. Built. See `kafka-events.md` for why publishing goes through an outbox rather than a direct Kafka send here.
 4. `SettlementService` calls the external system through the `ExternalSettlementGateway` interface to execute the money movement. Built, but the only implementation so far is `MockExternalSettlementGateway`, which always confirms — there's no real provider connector yet. A real connector is a later phase (invoice financing or a specific provider integration); the interface is the intended seam.
-5. Based on the gateway response, `SettlementTransactions.finalizeSettlement` moves the settlement to `CONFIRMED`, `FAILED`, or `UNKNOWN` and, only on `CONFIRMED`, writes the double-entry ledger entries and debits/credits the accounts. Built. The corresponding Kafka event publish is not yet built.
+5. Based on the gateway response, `SettlementTransactions.finalizeSettlement` moves the settlement to `CONFIRMED`, `FAILED`, or `UNKNOWN` and, only on `CONFIRMED`, writes the double-entry ledger entries and debits/credits the accounts, plus the corresponding `outbox_events` row (`settlement.confirmed`/`failed`/`unknown`), all in the same transaction. Built.
 6. A scheduled reconciliation job independently checks external records against internal settlement state, catching anything that never got a clean response, publishing `reconciliation.mismatch_found` when something doesn't line up. Not yet built (Phase 4).
 7. Fraud detection service consumes `settlement.requested` events and scores them before or alongside processing. Not yet built (Phase 5.5).
-8. A Kafka consumer updates a read-optimized view for the dashboard (CQRS). Not yet built (Phase 3).
+8. `OutboxPublisher` (scheduled poll, 500ms) sends unpublished outbox rows to Kafka; `SettlementEventConsumer` consumes all four topics and upserts `settlement_read_model` (CQRS). Built.
 9. Receipts and audit logs get written to S3. Not yet built.
 10. Redis caches account balances to avoid repeated Postgres reads on hot accounts. Not yet built.
 
@@ -31,5 +31,5 @@ All services run in Kubernetes, deployed via Docker images. Prometheus, Grafana,
 |------|----------|--------|
 | 2026-07-11 | Core problem reframed as idempotent settlement and reconciliation, invoice financing built on top rather than as the primary abstraction | Every fintech product that moves money shares this problem, building it as the core makes the project reusable and demonstrates the skill that actually gets tested in interviews |
 | 2026-07-11 | Invoice financing uses the same settlement path as every other money movement, no special-cased logic | Prevents a second, untested path for money movement that skips idempotency or state tracking |
-| 2026-07-11 | Use CQRS for the read model | Dashboard queries and settlement writes have different performance needs, separating them avoids lock contention |
+| 2026-07-11 | Use CQRS for the read model, built via a transactional outbox + Kafka rather than a direct write | Dashboard queries and settlement writes have different performance needs, separating them avoids lock contention; the outbox additionally solves the dual-write problem between the settlement DB transaction and the event publish, see `kafka-events.md` |
 | 2026-07-11 | Fraud service is a separate Python process, not embedded in Spring Boot | Keeps ML dependencies isolated, allows independent scaling and redeployment |

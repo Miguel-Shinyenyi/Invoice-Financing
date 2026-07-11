@@ -72,13 +72,13 @@ settlement-engine/
 
 Prerequisites: Java 21, Docker Desktop running (needed for local Postgres and for the Testcontainers integration tests — check `docker info` if unsure it's up).
 
-**Local Postgres:**
+**Local Postgres and Kafka:**
 
 ```
 docker compose -f infra/docker-compose.yml up -d
 ```
 
-Starts Postgres on `localhost:5432` with db/user/password all `settlement_engine` (see `infra/docker-compose.yml`, defaults match `src/main/resources/application.yml`). If port 5432 is already taken by another local Postgres instance, don't edit the compose file — run a throwaway container on a different host port instead and point the app at it via `SETTLEMENT_DB_URL` (see below).
+Starts Postgres on `localhost:5432` (db/user/password all `settlement_engine`, matching `src/main/resources/application.yml` defaults) and a single-node Kafka broker in KRaft mode (no Zookeeper) reachable at `localhost:29092`. If port 5432 or 29092 is already taken locally, don't edit the compose file — run a throwaway container on a different host port instead and point the app at it via `SETTLEMENT_DB_URL` / `KAFKA_BOOTSTRAP_SERVERS` (see below).
 
 **Run the app:**
 
@@ -86,7 +86,7 @@ Starts Postgres on `localhost:5432` with db/user/password all `settlement_engine
 ./mvnw spring-boot:run
 ```
 
-`./mvnw` is a thin wrapper pointing at a Maven distribution already cached locally under `~/.m2/wrapper/dists` — there is no system-wide `mvn` on this machine, don't try to `brew install` one. The app starts on port 8080. To point at a non-default database, set env vars before running: `SETTLEMENT_DB_URL`, `SETTLEMENT_DB_USER`, `SETTLEMENT_DB_PASSWORD`.
+`./mvnw` is a thin wrapper pointing at a Maven distribution already cached locally under `~/.m2/wrapper/dists` — there is no system-wide `mvn` on this machine, don't try to `brew install` one. The app starts on port 8080. To point at a non-default database or Kafka broker, set env vars before running: `SETTLEMENT_DB_URL`, `SETTLEMENT_DB_USER`, `SETTLEMENT_DB_PASSWORD`, `KAFKA_BOOTSTRAP_SERVERS`.
 
 **Swagger / OpenAPI**, once the app is up:
 
@@ -133,7 +133,7 @@ Keep this section accurate whenever the run/access process changes — see `docs
 8. Frontend (Next.js dashboard)
 9. Load and correctness testing, including chaos testing for network failure and duplicate delivery scenarios
 
-Current phase: **Phase 1 and Phase 2, done. Phase 3 (event-driven layer) not yet started.**
+Current phase: **Phase 1, Phase 2, and Phase 3, done. Phase 4 (reconciliation engine) not yet started.**
 
 ## Repo structure decision
 
@@ -169,6 +169,12 @@ Update this section every time a phase starts or finishes. Keep entries short.
 | 2026-07-11 | Phase 2 | Done | Audit logging: login attempts and account/settlement GET/create access attempts recorded to `audit_log` with `SUCCESS`/`DENIED`/`FAILURE` outcome (known gap: `@PreAuthorize` role denials aren't yet captured — see `security.md`) |
 | 2026-07-11 | Phase 2 | Done | Full test suite (79 tests): JWT issuing/parsing, refresh rotation, row-level guard, auth service, plus updated integration tests exercising the full login → protected-endpoint → refresh → logout flow against real Postgres; also manually verified end-to-end against a running instance |
 | 2026-07-11 | Phase 2 | Fixed | Spring Boot's default `UserDetailsServiceAutoConfiguration` was generating an unused random dev password on every startup since no `UserDetailsService` bean exists (auth is entirely JWT-based) — excluded explicitly |
+| 2026-07-11 | Phase 3 | Done | Schema: `outbox_events`, `settlement_read_model` (Flyway V3); Kafka broker (KRaft, no Zookeeper) added to `infra/docker-compose.yml` |
+| 2026-07-11 | Phase 3 | Done | Transactional outbox built with TDD: `OutboxEvent`/`OutboxWriter` write `settlement.requested`/`confirmed`/`failed`/`unknown` events in the same transaction as the settlement state change; `OutboxPublisher` (scheduled poll) sends to Kafka and only marks published after a confirmed ack |
+| 2026-07-11 | Phase 3 | Done | CQRS read model built: `SettlementEventConsumer` upserts `settlement_read_model` off all four topics |
+| 2026-07-11 | Phase 3 | Done | Full test suite (92 tests): unit tests for outbox/publisher/consumer plus a Testcontainers integration test proving the full DB write → outbox → Kafka → consumer → read model loop against a real broker; also manually verified end-to-end against a running instance with real scheduled timing (no manual triggers) |
+| 2026-07-11 | Phase 3 | Fixed | Assumed same partition key gives ordering across topics — it doesn't; Kafka only orders within one topic-partition, so `settlement.confirmed` was observed arriving before `settlement.requested`. Fixed: every consumer handler upserts, with a last-write-wins check by event timestamp so a late `requested` can't downgrade an already-`CONFIRMED` row |
+| 2026-07-11 | Phase 3 | Fixed | Second race found under the same integration test: two different topics' consumer threads racing to insert the same settlement's read-model row for the first time. Fixed with the same insert-race-and-fallback pattern already used in `SettlementService` |
 
 ## Rules for working on this project
 
