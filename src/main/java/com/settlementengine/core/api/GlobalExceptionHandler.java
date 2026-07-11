@@ -8,6 +8,8 @@ import com.settlementengine.core.domain.InsufficientBalanceException;
 import com.settlementengine.core.domain.SelfSettlementException;
 import com.settlementengine.core.domain.SettlementInProgressException;
 import com.settlementengine.core.domain.SettlementNotFoundException;
+import com.settlementengine.core.invoicing.InvoiceNotFoundException;
+import com.settlementengine.core.invoicing.InvoiceTransitionException;
 import com.settlementengine.core.reconciliation.MismatchAlreadyResolvedException;
 import com.settlementengine.core.reconciliation.MismatchNotFoundException;
 import com.settlementengine.core.security.InvalidTokenException;
@@ -30,7 +32,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler({AccountNotFoundException.class, SettlementNotFoundException.class,
-            MismatchNotFoundException.class})
+            MismatchNotFoundException.class, InvoiceNotFoundException.class})
     public ResponseEntity<ErrorResponse> handleNotFound(RuntimeException ex) {
         return respond(HttpStatus.NOT_FOUND, ex.getMessage());
     }
@@ -42,7 +44,8 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler({IdempotencyKeyReusedException.class, SettlementInProgressException.class,
-            IllegalStateTransitionException.class, MismatchAlreadyResolvedException.class})
+            IllegalStateTransitionException.class, MismatchAlreadyResolvedException.class,
+            InvoiceTransitionException.class})
     public ResponseEntity<ErrorResponse> handleConflict(RuntimeException ex) {
         return respond(HttpStatus.CONFLICT, ex.getMessage());
     }

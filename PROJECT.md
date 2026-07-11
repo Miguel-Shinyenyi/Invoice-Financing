@@ -88,6 +88,15 @@ Starts Postgres on `localhost:5432` (db/user/password all `settlement_engine`, m
 
 `./mvnw` is a thin wrapper pointing at a Maven distribution already cached locally under `~/.m2/wrapper/dists` — there is no system-wide `mvn` on this machine, don't try to `brew install` one. The app starts on port 8080. To point at a non-default database or Kafka broker, set env vars before running: `SETTLEMENT_DB_URL`, `SETTLEMENT_DB_USER`, `SETTLEMENT_DB_PASSWORD`, `KAFKA_BOOTSTRAP_SERVERS`.
 
+**As of Phase 5, `INVOICE_PLATFORM_ACCOUNT_ID` is required** (no default — the app fails fast at startup if it's missing, on purpose, see `database.md`). It must be a real `ledger_accounts.id` seeded ahead of time, representing the account invoice advances are disbursed from and repayments collected into, e.g.:
+
+```
+INVOICE_PLATFORM_ACCOUNT_ID=$(uuidgen)
+docker exec -it infra-postgres-1 psql -U settlement_engine -d settlement_engine -c \
+  "insert into ledger_accounts (id, owner_id, balance, currency, version, created_at) values ('$INVOICE_PLATFORM_ACCOUNT_ID', '$(uuidgen)', 1000000.00, 'USD', 0, now());"
+SETTLEMENT_DB_URL=... INVOICE_PLATFORM_ACCOUNT_ID=$INVOICE_PLATFORM_ACCOUNT_ID ./mvnw spring-boot:run
+```
+
 **Swagger / OpenAPI**, once the app is up:
 
 - Swagger UI: http://localhost:8080/swagger-ui/index.html (or http://localhost:8080/swagger-ui.html, which redirects there)
@@ -133,7 +142,7 @@ Keep this section accurate whenever the run/access process changes — see `docs
 8. Frontend (Next.js dashboard)
 9. Load and correctness testing, including chaos testing for network failure and duplicate delivery scenarios
 
-Current phase: **Phase 1 through Phase 4, done. Phase 5 (invoice financing application layer) not yet started.**
+Current phase: **Phase 1 through Phase 5, done — the core engine and its first application layer are complete. Phase 5.5 (fraud detection) and the infrastructure phases (6-9) not yet started.**
 
 ## Repo structure decision
 
@@ -182,6 +191,13 @@ Update this section every time a phase starts or finishes. Keep entries short.
 | 2026-07-11 | Phase 4 | Done | `ReconciliationScheduler` (60s default) plus `POST /reconciliation/runs`, `GET /reconciliation/mismatches`, `POST /reconciliation/mismatches/{id}/resolve` (all `ADMIN`/`SUPPORT` only), with audit logging extended to these actions |
 | 2026-07-11 | Phase 4 | Done | Full test suite (116 tests): reconciliation unit + integration tests proving both the auto-resolve-updates-the-ledger path and the mismatch-flagged-not-auto-resolved path against real Postgres; also manually verified end-to-end against a running instance (settlement → reconciliation run → matched, plus role enforcement and Swagger listing) |
 | 2026-07-11 | Phase 4 | Fixed | `AbstractIntegrationTest`'s shared static Postgres container field, combined with Spring's test context caching, could hand a test class a cached context pointing at an already-dead container port after another class's container restarted — added `@DirtiesContext(classMode = AFTER_CLASS)` |
+| 2026-07-12 | Phase 5 | Done | Schema: `invoices`, `advances` (Flyway V5), referencing `ledger_accounts`/`settlements` directly rather than inventing a separate business entity |
+| 2026-07-12 | Phase 5 | Done | `InvoiceService`/`InvoiceTransactions` built with TDD: invoice submission, financing (80%/2% advance/fee defaults) disbursed through the *same* `SettlementService` every other money movement uses, with a pessimistic-lock "claim" step closing a double-financing race (see below) |
+| 2026-07-12 | Phase 5 | Done | `InvoiceRepaymentService` + scheduler (60s default): checks a mock `InvoicePaymentSource` for customer payments, collects repayment via a settlement keyed by a deterministic idempotency key, marks invoices `OVERDUE` past due date + grace period (3 days default) |
+| 2026-07-12 | Phase 5 | Done | REST endpoints: `POST /invoices`, `POST /invoices/{id}/finance`, `GET /invoices/{id}` (row-level restricted like accounts/settlements), audit-logged |
+| 2026-07-12 | Phase 5 | Done | Full test suite (170 tests): invoice/advance domain, service, and repayment-matching unit tests plus a Testcontainers integration test proving the full submit → finance → detect payment → repay lifecycle with correct ledger balances throughout; also manually verified end-to-end against a running instance (repayment path verified only via the automated test, same reasoning as Phase 4's mismatch scenario — there's no REST-exposed way to simulate a customer payment, by design) |
+| 2026-07-12 | Phase 5 | Fixed | Found while designing financing: concurrent finance requests for the same invoice with *different* idempotency keys aren't caught by the settlement engine's own idempotency mechanism, so an invoice could be double-financed. Fixed with a pessimistic row lock that atomically claims the invoice (`ISSUED`→`FINANCED`) before the disbursement is even attempted |
+| 2026-07-12 | Phase 5 | Fixed | Adding a required (`no default`) `INVOICE_PLATFORM_ACCOUNT_ID` property broke every existing `@SpringBootTest`, since they all boot the full context including `InvoiceService`'s bean definition. Fixed with `src/test/resources/application-test.yml` + `@ActiveProfiles("test")` on `AbstractIntegrationTest`, rather than duplicating the whole config file |
 
 ## Rules for working on this project
 

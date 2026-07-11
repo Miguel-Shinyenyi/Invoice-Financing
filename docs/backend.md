@@ -39,11 +39,11 @@ All three require `ADMIN` or `SUPPORT` — unlike the settlement/account `GET` e
 - `GET /reconciliation/mismatches` - lists all currently `OPEN` mismatches.
 - `POST /reconciliation/mismatches/{id}/resolve` - body: `reason`. Marks the mismatch `RESOLVED` and appends the reason to its `details`. Returns `404` if not found, `409` if already resolved. Deliberately does **not** itself change the underlying settlement's ledger state — resolving a mismatch is a record-keeping/review action, not a compensating transaction; any actual correction to the settlement is a manual, separate action outside reconciliation's scope for now.
 
-Planned for Phase 5, invoice financing:
+### Invoice financing endpoints (built, Phase 5)
 
-- `POST /invoices` - submit an invoice for financing
-- `POST /invoices/{id}/finance` - approve and disburse an advance against an invoice, requires an `Idempotency-Key` header, goes through the settlement engine
-- `GET /invoices/{id}` - get invoice and advance status
+- `POST /invoices` - `ADMIN`/`SUPPORT`. Submits an invoice; no money movement happens yet, it starts `ISSUED`. `404` if `businessAccountId` doesn't reference a real `ledger_accounts` row.
+- `POST /invoices/{id}/finance` - `ADMIN`/`SUPPORT`. Requires an `Idempotency-Key` header. Disburses `amount × advanceRate` (80% default) from the platform account to the business account through the *same* settlement engine every other money movement in this system uses — see `architecture.md`'s decision that invoice financing has no special-cased money-movement path. `409` if the invoice isn't `ISSUED` (already financed, repaid, or overdue).
+- `GET /invoices/{id}` - any authenticated role, row-level restricted like accounts/settlements: a `READ_ONLY` user only sees invoices whose `businessAccountId` resolves to an account they own. Returns the invoice plus its advance (amount advanced, fee, disbursed/repaid settlement ids, status) if one exists.
 
 ## Decisions log
 
@@ -57,6 +57,8 @@ Planned for Phase 5, invoice financing:
 | 2026-07-11 | REST over GraphQL for v1 | Simpler to secure and test for a first pass, GraphQL can be added later if the frontend needs it |
 | 2026-07-11 | All `/reconciliation/**` endpoints require `ADMIN` or `SUPPORT`, none open to `READ_ONLY` | Unlike settlement/account `GET`s, mismatches are back-office review data, not something an account holder should see even about their own settlements |
 | 2026-07-11 | Resolving a mismatch never mutates the settlement itself | Keeps "did reconciliation decide this" (mismatch resolution, a review action) separate from "did the ledger change" (a settlement transition, which only ever happens through `SettlementTransactions`); conflating them would create a second path that can move settlement state without going through the state machine's single enforcement point |
+| 2026-07-12 | `POST /invoices/{id}/finance` atomically claims the invoice (`ISSUED`→`FINANCED`, pessimistic row lock) *before* calling the settlement engine, in a separate transaction from the disbursement itself | Found while designing this: two concurrent finance requests for the same invoice with *different* idempotency keys wouldn't be caught by the settlement engine's own idempotency mechanism (that only protects retries of the *same* key), so the invoice could be double-financed. The lock closes that race; keeping it a short, separate transaction (not wrapping the whole disbursement) avoids holding a row lock for the duration of an external call |
+| 2026-07-12 | No manual "simulate a customer payment" endpoint | `MockInvoicePaymentSource.markPaid` exists only as a code-level test/demo hook, not a REST endpoint, mirroring `MockExternalSystem.corrupt`/`forget` from Phase 4 — these are stand-ins for something a real external system would do on its own, not an action this API should let a client trigger |
 
 ## Open questions
 

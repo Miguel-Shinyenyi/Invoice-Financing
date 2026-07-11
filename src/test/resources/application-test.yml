@@ -1,0 +1,6 @@
+settlement-engine:
+  invoice-financing:
+    # Fixed placeholder so @SpringBootTest contexts can boot without every test needing to know
+    # about invoice financing. Tests that actually exercise it seed a matching ledger_accounts row
+    # under this same id.
+    platform-account-id: 00000000-0000-0000-0000-000000000001
