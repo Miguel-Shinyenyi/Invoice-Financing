@@ -13,6 +13,7 @@ import com.settlementengine.core.domain.SelfSettlementException;
 import com.settlementengine.core.domain.Settlement;
 import com.settlementengine.core.domain.SettlementStatus;
 import com.settlementengine.core.events.KafkaTopics;
+import com.settlementengine.core.gateway.GatewayResult;
 import com.settlementengine.core.gateway.SettlementExecutionRequest;
 import com.settlementengine.core.gateway.SettlementOutcome;
 import com.settlementengine.core.outbox.OutboxWriter;
@@ -160,11 +161,13 @@ class SettlementTransactionsTest {
         when(ledgerAccountRepository.findById(destinationId)).thenReturn(Optional.of(destination));
         when(idempotencyKeyRepository.findById(idempotencyKey)).thenReturn(Optional.of(key));
 
-        SettlementResult result = settlementTransactions.finalizeSettlement(settlementId, SettlementOutcome.CONFIRMED);
+        SettlementResult result = settlementTransactions.finalizeSettlement(settlementId,
+                new GatewayResult(SettlementOutcome.CONFIRMED, "MOCK-ref-1"));
 
         assertThat(result.status()).isEqualTo(SettlementStatus.CONFIRMED);
         assertThat(source.getBalance()).isEqualByComparingTo("60.00");
         assertThat(destination.getBalance()).isEqualByComparingTo("40.00");
+        assertThat(settlement.getExternalRef()).isEqualTo("MOCK-ref-1");
 
         ArgumentCaptor<LedgerEntry> entryCaptor = ArgumentCaptor.forClass(LedgerEntry.class);
         verify(ledgerEntryRepository, times(2)).save(entryCaptor.capture());
@@ -190,7 +193,8 @@ class SettlementTransactionsTest {
         when(settlementRepository.findById(settlementId)).thenReturn(Optional.of(settlement));
         when(idempotencyKeyRepository.findById(idempotencyKey)).thenReturn(Optional.of(key));
 
-        SettlementResult result = settlementTransactions.finalizeSettlement(settlementId, SettlementOutcome.FAILED);
+        SettlementResult result = settlementTransactions.finalizeSettlement(settlementId,
+                new GatewayResult(SettlementOutcome.FAILED, "MOCK-ref-2"));
 
         assertThat(result.status()).isEqualTo(SettlementStatus.FAILED);
         verify(ledgerEntryRepository, never()).save(any());
@@ -211,7 +215,8 @@ class SettlementTransactionsTest {
         when(settlementRepository.findById(settlementId)).thenReturn(Optional.of(settlement));
         when(idempotencyKeyRepository.findById(idempotencyKey)).thenReturn(Optional.of(key));
 
-        SettlementResult result = settlementTransactions.finalizeSettlement(settlementId, SettlementOutcome.UNKNOWN);
+        SettlementResult result = settlementTransactions.finalizeSettlement(settlementId,
+                new GatewayResult(SettlementOutcome.UNKNOWN, null));
 
         assertThat(result.status()).isEqualTo(SettlementStatus.UNKNOWN);
         verify(ledgerEntryRepository, never()).save(any());

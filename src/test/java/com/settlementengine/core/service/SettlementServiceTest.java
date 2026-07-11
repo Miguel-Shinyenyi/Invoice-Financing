@@ -7,6 +7,7 @@ import com.settlementengine.core.domain.IdempotencyKeyReusedException;
 import com.settlementengine.core.domain.SettlementInProgressException;
 import com.settlementengine.core.domain.SettlementStatus;
 import com.settlementengine.core.gateway.ExternalSettlementGateway;
+import com.settlementengine.core.gateway.GatewayResult;
 import com.settlementengine.core.gateway.SettlementExecutionRequest;
 import com.settlementengine.core.gateway.SettlementOutcome;
 import org.junit.jupiter.api.BeforeEach;
@@ -57,11 +58,12 @@ class SettlementServiceTest {
         SettlementExecutionRequest executionRequest = new SettlementExecutionRequest(
                 UUID.randomUUID(), command.sourceAccountId(), command.destinationAccountId(), command.amount(), command.currency());
         when(settlementTransactions.createPendingSettlement(any(), any(), any())).thenReturn(executionRequest);
-        when(externalSettlementGateway.execute(executionRequest)).thenReturn(SettlementOutcome.CONFIRMED);
+        GatewayResult gatewayResult = new GatewayResult(SettlementOutcome.CONFIRMED, "MOCK-ref");
+        when(externalSettlementGateway.execute(executionRequest)).thenReturn(gatewayResult);
         SettlementResult finalResult = new SettlementResult(executionRequest.settlementId(), command.sourceAccountId(),
                 command.destinationAccountId(), command.amount(), command.currency(), SettlementStatus.CONFIRMED,
                 null, Instant.now(), Instant.now());
-        when(settlementTransactions.finalizeSettlement(executionRequest.settlementId(), SettlementOutcome.CONFIRMED))
+        when(settlementTransactions.finalizeSettlement(executionRequest.settlementId(), gatewayResult))
                 .thenReturn(finalResult);
 
         SettlementResult result = settlementService.createSettlement(idempotencyKey, command);

@@ -8,6 +8,8 @@ import com.settlementengine.core.domain.InsufficientBalanceException;
 import com.settlementengine.core.domain.SelfSettlementException;
 import com.settlementengine.core.domain.SettlementInProgressException;
 import com.settlementengine.core.domain.SettlementNotFoundException;
+import com.settlementengine.core.reconciliation.MismatchAlreadyResolvedException;
+import com.settlementengine.core.reconciliation.MismatchNotFoundException;
 import com.settlementengine.core.security.InvalidTokenException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -27,7 +29,8 @@ public class GlobalExceptionHandler {
         return respond(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
-    @ExceptionHandler({AccountNotFoundException.class, SettlementNotFoundException.class})
+    @ExceptionHandler({AccountNotFoundException.class, SettlementNotFoundException.class,
+            MismatchNotFoundException.class})
     public ResponseEntity<ErrorResponse> handleNotFound(RuntimeException ex) {
         return respond(HttpStatus.NOT_FOUND, ex.getMessage());
     }
@@ -39,7 +42,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler({IdempotencyKeyReusedException.class, SettlementInProgressException.class,
-            IllegalStateTransitionException.class})
+            IllegalStateTransitionException.class, MismatchAlreadyResolvedException.class})
     public ResponseEntity<ErrorResponse> handleConflict(RuntimeException ex) {
         return respond(HttpStatus.CONFLICT, ex.getMessage());
     }

@@ -7,8 +7,8 @@ import com.settlementengine.core.domain.IdempotencyKeyReusedException;
 import com.settlementengine.core.domain.IdempotencyKeyStatus;
 import com.settlementengine.core.domain.SettlementInProgressException;
 import com.settlementengine.core.gateway.ExternalSettlementGateway;
+import com.settlementengine.core.gateway.GatewayResult;
 import com.settlementengine.core.gateway.SettlementExecutionRequest;
-import com.settlementengine.core.gateway.SettlementOutcome;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.TransientDataAccessException;
 import org.springframework.stereotype.Service;
@@ -54,13 +54,13 @@ public class SettlementService {
             return handleExisting(winner, requestHash);
         }
 
-        SettlementOutcome outcome = externalSettlementGateway.execute(executionRequest);
-        return finalizeWithRetry(executionRequest.settlementId(), outcome);
+        GatewayResult gatewayResult = externalSettlementGateway.execute(executionRequest);
+        return finalizeWithRetry(executionRequest.settlementId(), gatewayResult);
     }
 
     private static final int MAX_FINALIZE_ATTEMPTS = 5;
 
-    private SettlementResult finalizeWithRetry(UUID settlementId, SettlementOutcome outcome) {
+    private SettlementResult finalizeWithRetry(UUID settlementId, GatewayResult gatewayResult) {
         // The settlement row is already committed as PENDING by this point, so retrying only
         // finalizeSettlement (not the whole createSettlement flow) is safe: other concurrent
         // callers for the same idempotency key still see IN_PROGRESS while we retry, and each
@@ -70,7 +70,7 @@ public class SettlementService {
         // attempts — a transient condition, not a correctness problem.
         for (int attempt = 1; attempt <= MAX_FINALIZE_ATTEMPTS; attempt++) {
             try {
-                return settlementTransactions.finalizeSettlement(settlementId, outcome);
+                return settlementTransactions.finalizeSettlement(settlementId, gatewayResult);
             } catch (TransientDataAccessException transientFailure) {
                 if (attempt == MAX_FINALIZE_ATTEMPTS) {
                     throw transientFailure;
