@@ -68,6 +68,48 @@ settlement-engine/
   infra/                                     <- Docker, Kubernetes manifests, GitHub Actions, AWS configs
 ```
 
+## Running the application
+
+Prerequisites: Java 21, Docker Desktop running (needed for local Postgres and for the Testcontainers integration tests — check `docker info` if unsure it's up).
+
+**Local Postgres:**
+
+```
+docker compose -f infra/docker-compose.yml up -d
+```
+
+Starts Postgres on `localhost:5432` with db/user/password all `settlement_engine` (see `infra/docker-compose.yml`, defaults match `src/main/resources/application.yml`). If port 5432 is already taken by another local Postgres instance, don't edit the compose file — run a throwaway container on a different host port instead and point the app at it via `SETTLEMENT_DB_URL` (see below).
+
+**Run the app:**
+
+```
+./mvnw spring-boot:run
+```
+
+`./mvnw` is a thin wrapper pointing at a Maven distribution already cached locally under `~/.m2/wrapper/dists` — there is no system-wide `mvn` on this machine, don't try to `brew install` one. The app starts on port 8080. To point at a non-default database, set env vars before running: `SETTLEMENT_DB_URL`, `SETTLEMENT_DB_USER`, `SETTLEMENT_DB_PASSWORD`.
+
+**Swagger / OpenAPI**, once the app is up:
+
+- Swagger UI: http://localhost:8080/swagger-ui/index.html (or http://localhost:8080/swagger-ui.html, which redirects there)
+- Raw OpenAPI JSON: http://localhost:8080/v3/api-docs
+
+Current limitation: there is no endpoint yet to create `ledger_accounts` (not in Phase 1 scope, and still absent as of Phase 2 start). To exercise `POST /settlements` via Swagger, seed at least two accounts directly in Postgres first, generating IDs client-side (the schema deliberately has no DB-side UUID default — see `database.md`), e.g.:
+
+```
+docker exec -it infra-postgres-1 psql -U settlement_engine -d settlement_engine -c \
+  "insert into ledger_accounts (id, owner_id, balance, currency, version, created_at) values ('$(uuidgen)', '$(uuidgen)', 1000.00, 'USD', 0, now());"
+```
+
+**Run tests:**
+
+```
+./mvnw test
+```
+
+Requires Docker running — the integration suite (including the concurrency test) uses Testcontainers to spin up a real Postgres instance per test class.
+
+Keep this section accurate whenever the run/access process changes — see `docs/DOCS_MAINTENANCE.md`.
+
 ## Build phases
 
 1. Core ledger and idempotency layer (Spring Boot, Postgres, TDD): idempotency keys, double-entry ledger, settlement state machine
