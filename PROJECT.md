@@ -105,6 +105,10 @@ Update this section every time a phase starts or finishes. Keep entries short.
 | 2026-07-11 | Phase 1 | Done | `SettlementService`/`SettlementTransactions` built: idempotent settlement creation, external gateway seam (`ExternalSettlementGateway`, mock implementation), double-entry ledger writes on `CONFIRMED` only |
 | 2026-07-11 | Phase 1 | Done | REST API built: `POST /settlements`, `GET /settlements/{id}`, `GET /accounts/{id}`, centralized exception mapping |
 | 2026-07-11 | Phase 1 | Done | Full test suite (51 tests): unit tests for all business logic plus Testcontainers integration tests, including a concurrency test that proves exactly-once settlement creation against real Postgres under 8 concurrent threads |
+| 2026-07-11 | Phase 1 | Fixed | Schema/entity mismatch: currency columns were `CHAR(3)`, Hibernate schema validation expects `VARCHAR(3)` — migration fixed, caught by the Testcontainers tests before it ever reached a real environment |
+| 2026-07-11 | Phase 1 | Fixed | Concurrent inserts on the same idempotency key can surface as a clean unique-violation or a Postgres deadlock depending on timing — race-fallback broadened from `DataIntegrityViolationException` to `DataAccessException` to catch both |
+| 2026-07-11 | Phase 1 | Fixed | Second deadlock found under the same concurrency test: the winning thread's own finalize step can deadlock against losing transactions' FK-check locks on `idempotency_keys` — fixed with a bounded retry (5 attempts) on `TransientDataAccessException`, scoped to just the finalize step |
+| 2026-07-11 | Phase 1 polish | Done | springdoc-openapi wired in: `/v3/api-docs` and Swagger UI at `/swagger-ui/index.html`, with `@Operation`/`@ApiResponse`/`@Schema` annotations on both controllers and `CreateSettlementRequest`; manually verified by starting the app and checking the generated docs |
 
 ## Rules for working on this project
 
