@@ -8,8 +8,10 @@ import com.settlementengine.core.domain.InsufficientBalanceException;
 import com.settlementengine.core.domain.SelfSettlementException;
 import com.settlementengine.core.domain.SettlementInProgressException;
 import com.settlementengine.core.domain.SettlementNotFoundException;
+import com.settlementengine.core.security.InvalidTokenException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -40,6 +42,11 @@ public class GlobalExceptionHandler {
             IllegalStateTransitionException.class})
     public ResponseEntity<ErrorResponse> handleConflict(RuntimeException ex) {
         return respond(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler({BadCredentialsException.class, InvalidTokenException.class})
+    public ResponseEntity<ErrorResponse> handleAuthenticationFailure(RuntimeException ex) {
+        return respond(HttpStatus.UNAUTHORIZED, ex.getMessage());
     }
 
     private ResponseEntity<ErrorResponse> respond(HttpStatus status, String message) {

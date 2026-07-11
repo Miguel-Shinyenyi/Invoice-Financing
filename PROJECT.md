@@ -93,12 +93,22 @@ Starts Postgres on `localhost:5432` with db/user/password all `settlement_engine
 - Swagger UI: http://localhost:8080/swagger-ui/index.html (or http://localhost:8080/swagger-ui.html, which redirects there)
 - Raw OpenAPI JSON: http://localhost:8080/v3/api-docs
 
-Current limitation: there is no endpoint yet to create `ledger_accounts` (not in Phase 1 scope, and still absent as of Phase 2 start). To exercise `POST /settlements` via Swagger, seed at least two accounts directly in Postgres first, generating IDs client-side (the schema deliberately has no DB-side UUID default — see `database.md`), e.g.:
+As of Phase 2, every endpoint except `/auth/**` requires a JWT — use Swagger's "Authorize" button and paste `Bearer <accessToken>` from a `POST /auth/login` response before calling anything else.
+
+Current limitations: there is no endpoint yet to create `ledger_accounts` or `users` (not in Phase 1/2 scope). Seed both directly in Postgres, generating IDs client-side (the schema deliberately has no DB-side UUID default — see `database.md`) and the password hash with BCrypt, e.g.:
 
 ```
 docker exec -it infra-postgres-1 psql -U settlement_engine -d settlement_engine -c \
   "insert into ledger_accounts (id, owner_id, balance, currency, version, created_at) values ('$(uuidgen)', '$(uuidgen)', 1000.00, 'USD', 0, now());"
+
+# Password hash example (BCrypt of "password123"), or generate your own via
+# a BCryptPasswordEncoder — see security.md for why raw passwords are never stored.
+docker exec -it infra-postgres-1 psql -U settlement_engine -d settlement_engine -c \
+  "insert into users (id, username, password_hash, role, owner_id, created_at) values \
+  ('$(uuidgen)', 'admin1', '\$2a\$10\$jTNzzXt7BIL.8oXRKe8E1.Rm3FnmPcsuHs6WiwYjA/CmRW9Bp4EZK', 'ADMIN', null, now());"
 ```
+
+Then `POST /auth/login` with `{"username":"admin1","password":"password123"}` to get a token.
 
 **Run tests:**
 
@@ -123,7 +133,7 @@ Keep this section accurate whenever the run/access process changes — see `docs
 8. Frontend (Next.js dashboard)
 9. Load and correctness testing, including chaos testing for network failure and duplicate delivery scenarios
 
-Current phase: **Phase 1, done. Phase 2 (security and access control) not yet started.**
+Current phase: **Phase 1 and Phase 2, done. Phase 3 (event-driven layer) not yet started.**
 
 ## Repo structure decision
 
@@ -151,6 +161,14 @@ Update this section every time a phase starts or finishes. Keep entries short.
 | 2026-07-11 | Phase 1 | Fixed | Concurrent inserts on the same idempotency key can surface as a clean unique-violation or a Postgres deadlock depending on timing — race-fallback broadened from `DataIntegrityViolationException` to `DataAccessException` to catch both |
 | 2026-07-11 | Phase 1 | Fixed | Second deadlock found under the same concurrency test: the winning thread's own finalize step can deadlock against losing transactions' FK-check locks on `idempotency_keys` — fixed with a bounded retry (5 attempts) on `TransientDataAccessException`, scoped to just the finalize step |
 | 2026-07-11 | Phase 1 polish | Done | springdoc-openapi wired in: `/v3/api-docs` and Swagger UI at `/swagger-ui/index.html`, with `@Operation`/`@ApiResponse`/`@Schema` annotations on both controllers and `CreateSettlementRequest`; manually verified by starting the app and checking the generated docs |
+| 2026-07-11 | Phase 2 | Done | Schema: `users`, `refresh_tokens`, `audit_log` (Flyway V2) |
+| 2026-07-11 | Phase 2 | Done | JWT auth built with TDD: `JwtService` (issue/parse, HMAC-signed, role + optional ownerId claims), `RefreshTokenService` (rotation, hashed storage), `AuthService`/`AuthController` (`POST /auth/login`, `/refresh`, `/logout`) |
+| 2026-07-11 | Phase 2 | Done | `SecurityConfig` + `JwtAuthenticationFilter`: stateless JWT auth on every endpoint except `/auth/**` and Swagger/OpenAPI paths; uniform JSON error bodies for 401/403 |
+| 2026-07-11 | Phase 2 | Done | Role checks: `POST /settlements` requires `ADMIN`/`SUPPORT` (`@PreAuthorize`) |
+| 2026-07-11 | Phase 2 | Done | Row-level ownership: `RowLevelAccessGuard` restricts `READ_ONLY` users to accounts/settlements tied to their own `owner_id`; `ADMIN`/`SUPPORT` unrestricted |
+| 2026-07-11 | Phase 2 | Done | Audit logging: login attempts and account/settlement GET/create access attempts recorded to `audit_log` with `SUCCESS`/`DENIED`/`FAILURE` outcome (known gap: `@PreAuthorize` role denials aren't yet captured — see `security.md`) |
+| 2026-07-11 | Phase 2 | Done | Full test suite (79 tests): JWT issuing/parsing, refresh rotation, row-level guard, auth service, plus updated integration tests exercising the full login → protected-endpoint → refresh → logout flow against real Postgres; also manually verified end-to-end against a running instance |
+| 2026-07-11 | Phase 2 | Fixed | Spring Boot's default `UserDetailsServiceAutoConfiguration` was generating an unused random dev password on every startup since no `UserDetailsService` bean exists (auth is entirely JWT-based) — excluded explicitly |
 
 ## Rules for working on this project
 
