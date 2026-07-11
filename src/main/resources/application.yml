@@ -48,3 +48,8 @@ settlement-engine:
     platform-account-id: ${INVOICE_PLATFORM_ACCOUNT_ID}
     repayment-grace-period-days: ${INVOICE_REPAYMENT_GRACE_PERIOD_DAYS:3}
     scheduled-fixed-delay-ms: ${INVOICE_REPAYMENT_SCHEDULED_FIXED_DELAY_MS:60000}
+  fraud-detection:
+    # Advisory only: if this service is unreachable or times out, HttpFraudDetectionClient fails
+    # open (allows financing to proceed) rather than blocking on an optional dependency.
+    base-url: ${FRAUD_DETECTION_BASE_URL:http://localhost:8000}
+    timeout-ms: ${FRAUD_DETECTION_TIMEOUT_MS:2000}

@@ -119,6 +119,17 @@ docker exec -it infra-postgres-1 psql -U settlement_engine -d settlement_engine 
 
 Then `POST /auth/login` with `{"username":"admin1","password":"password123"}` to get a token.
 
+**Fraud detection service (Phase 5.5), optional but recommended:**
+
+```
+cd ml-service
+python3 -m venv .venv && source .venv/bin/activate   # first time only
+pip install -r requirements-dev.txt                   # first time only
+uvicorn main:app --host 0.0.0.0 --port 8000
+```
+
+The backend calls this at `http://localhost:8000` by default (`settlement-engine.fraud-detection.base-url` / `FRAUD_DETECTION_BASE_URL` env var to override) before disbursing any advance. It's advisory only: if it's not running, `POST /invoices/{id}/finance` still works, just always with an "allow, no signal" fraud assessment (fail-open, see `docs/fraud-detection.md`) — so it's fine to skip starting it for a quick backend-only check, but start it to see real scores.
+
 **Run tests:**
 
 ```
@@ -126,6 +137,12 @@ Then `POST /auth/login` with `{"username":"admin1","password":"password123"}` to
 ```
 
 Requires Docker running — the integration suite (including the concurrency test) uses Testcontainers to spin up a real Postgres instance per test class.
+
+The Python `ml-service` has its own test suite, run separately:
+
+```
+cd ml-service && source .venv/bin/activate && python -m pytest test_main.py
+```
 
 Keep this section accurate whenever the run/access process changes — see `docs/DOCS_MAINTENANCE.md`.
 
@@ -142,7 +159,7 @@ Keep this section accurate whenever the run/access process changes — see `docs
 8. Frontend (Next.js dashboard)
 9. Load and correctness testing, including chaos testing for network failure and duplicate delivery scenarios
 
-Current phase: **Phase 1 through Phase 5, done — the core engine and its first application layer are complete. Phase 5.5 (fraud detection) and the infrastructure phases (6-9) not yet started.**
+Current phase: **Phase 1 through Phase 5.5, done — the core engine, its first application layer, and fraud detection are complete. The infrastructure phases (6-9) not yet started.**
 
 ## Repo structure decision
 
@@ -198,6 +215,12 @@ Update this section every time a phase starts or finishes. Keep entries short.
 | 2026-07-12 | Phase 5 | Done | Full test suite (170 tests): invoice/advance domain, service, and repayment-matching unit tests plus a Testcontainers integration test proving the full submit → finance → detect payment → repay lifecycle with correct ledger balances throughout; also manually verified end-to-end against a running instance (repayment path verified only via the automated test, same reasoning as Phase 4's mismatch scenario — there's no REST-exposed way to simulate a customer payment, by design) |
 | 2026-07-12 | Phase 5 | Fixed | Found while designing financing: concurrent finance requests for the same invoice with *different* idempotency keys aren't caught by the settlement engine's own idempotency mechanism, so an invoice could be double-financed. Fixed with a pessimistic row lock that atomically claims the invoice (`ISSUED`→`FINANCED`) before the disbursement is even attempted |
 | 2026-07-12 | Phase 5 | Fixed | Adding a required (`no default`) `INVOICE_PLATFORM_ACCOUNT_ID` property broke every existing `@SpringBootTest`, since they all boot the full context including `InvoiceService`'s bean definition. Fixed with `src/test/resources/application-test.yml` + `@ActiveProfiles("test")` on `AbstractIntegrationTest`, rather than duplicating the whole config file |
+| 2026-07-12 | Phase 5.5 | Done | Schema: `fraud_assessments` (Flyway V6) |
+| 2026-07-12 | Phase 5.5 | Done | `ml-service/main.py` built with TDD (Python, FastAPI): rule-based `/score` endpoint (duplicate customer reference, new-account-plus-high-advance, rapid refinancing; `BLOCK` at score ≥ 0.7), 9 pytest tests written before the implementation |
+| 2026-07-12 | Phase 5.5 | Done | `FraudAssessment` entity/repository and `HttpFraudDetectionClient` (Java, `RestClient` over the JDK `HttpClient`) built with TDD, wired into `InvoiceService.financeInvoice`: fraud check runs before the invoice is claimed for financing, persists an assessment unconditionally, throws `FraudBlockedException` (422) on `BLOCK` |
+| 2026-07-12 | Phase 5.5 | Done | Fraud check is synchronous HTTP, not async Kafka consumption, resolving a self-contradiction in the original plan (an async consumer can't reliably block a synchronous disbursement decision); fails open (allows financing) if the ML service is unreachable, since it's advisory, not load-bearing |
+| 2026-07-12 | Phase 5.5 | Done | Full test suite (178 Java tests + 9 Python tests): all passing; manually verified end-to-end against running instances of the backend, Postgres, Kafka, and the ml-service — a clean invoice (ALLOW), a combined-signal invoice (BLOCK, 422, invoice left `ISSUED`), and the fail-open path with the ml-service stopped |
+| 2026-07-12 | Phase 5.5 | Fixed | The JDK `HttpClient`'s default HTTP/2-cleartext-upgrade attempt (`Upgrade: h2c` header) silently caused uvicorn to treat every real fraud-check POST body as missing (`422`, "Field required"), even though the JDK-`HttpServer`-backed unit tests passed — only caught by manual end-to-end testing against the real ml-service, not the automated suite. Fixed by forcing `HttpClient.Version.HTTP_1_1` in `HttpFraudDetectionClient` |
 
 ## Rules for working on this project
 
