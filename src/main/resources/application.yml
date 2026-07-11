@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: settlement-engine
+  datasource:
+    url: ${SETTLEMENT_DB_URL:jdbc:postgresql://localhost:5432/settlement_engine}
+    username: ${SETTLEMENT_DB_USER:settlement_engine}
+    password: ${SETTLEMENT_DB_PASSWORD:settlement_engine}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
