@@ -39,3 +39,12 @@ settlement-engine:
   reconciliation:
     grace-period-seconds: ${RECONCILIATION_GRACE_PERIOD_SECONDS:300}
     scheduled-fixed-delay-ms: ${RECONCILIATION_SCHEDULED_FIXED_DELAY_MS:60000}
+  invoice-financing:
+    advance-rate-percent: ${INVOICE_ADVANCE_RATE_PERCENT:80}
+    fee-rate-percent: ${INVOICE_FEE_RATE_PERCENT:2}
+    # No default: this must be a real ledger_accounts.id seeded ahead of time. The app fails fast
+    # at startup with a clear "could not resolve placeholder" error if it's not set, rather than
+    # silently financing invoices from a nonexistent account.
+    platform-account-id: ${INVOICE_PLATFORM_ACCOUNT_ID}
+    repayment-grace-period-days: ${INVOICE_REPAYMENT_GRACE_PERIOD_DAYS:3}
+    scheduled-fixed-delay-ms: ${INVOICE_REPAYMENT_SCHEDULED_FIXED_DELAY_MS:60000}
