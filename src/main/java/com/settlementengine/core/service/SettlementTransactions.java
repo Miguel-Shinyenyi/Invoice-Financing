@@ -10,8 +10,14 @@ import com.settlementengine.core.domain.LedgerEntry;
 import com.settlementengine.core.domain.EntryType;
 import com.settlementengine.core.domain.SelfSettlementException;
 import com.settlementengine.core.domain.Settlement;
+import com.settlementengine.core.events.KafkaTopics;
+import com.settlementengine.core.events.SettlementConfirmedEvent;
+import com.settlementengine.core.events.SettlementFailedEvent;
+import com.settlementengine.core.events.SettlementRequestedEvent;
+import com.settlementengine.core.events.SettlementUnknownEvent;
 import com.settlementengine.core.gateway.SettlementExecutionRequest;
 import com.settlementengine.core.gateway.SettlementOutcome;
+import com.settlementengine.core.outbox.OutboxWriter;
 import com.settlementengine.core.repository.IdempotencyKeyRepository;
 import com.settlementengine.core.repository.LedgerAccountRepository;
 import com.settlementengine.core.repository.LedgerEntryRepository;
@@ -19,28 +25,34 @@ import com.settlementengine.core.repository.SettlementRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
 @Service
 public class SettlementTransactions {
 
+    private static final String AGGREGATE_TYPE_SETTLEMENT = "SETTLEMENT";
+
     private final LedgerAccountRepository ledgerAccountRepository;
     private final SettlementRepository settlementRepository;
     private final LedgerEntryRepository ledgerEntryRepository;
     private final IdempotencyKeyRepository idempotencyKeyRepository;
     private final ObjectMapper objectMapper;
+    private final OutboxWriter outboxWriter;
 
     public SettlementTransactions(LedgerAccountRepository ledgerAccountRepository,
                                    SettlementRepository settlementRepository,
                                    LedgerEntryRepository ledgerEntryRepository,
                                    IdempotencyKeyRepository idempotencyKeyRepository,
-                                   ObjectMapper objectMapper) {
+                                   ObjectMapper objectMapper,
+                                   OutboxWriter outboxWriter) {
         this.ledgerAccountRepository = ledgerAccountRepository;
         this.settlementRepository = settlementRepository;
         this.ledgerEntryRepository = ledgerEntryRepository;
         this.idempotencyKeyRepository = idempotencyKeyRepository;
         this.objectMapper = objectMapper;
+        this.outboxWriter = outboxWriter;
     }
 
     @Transactional(readOnly = true)
@@ -64,6 +76,10 @@ public class SettlementTransactions {
         Settlement settlement = new Settlement(settlementId, idempotencyKey, source.getId(), destination.getId(),
                 command.amount(), command.currency());
         settlementRepository.save(settlement);
+
+        outboxWriter.write(AGGREGATE_TYPE_SETTLEMENT, settlementId, KafkaTopics.SETTLEMENT_REQUESTED,
+                new SettlementRequestedEvent(settlementId, source.getId(), destination.getId(),
+                        command.amount(), command.currency(), Instant.now()));
 
         return new SettlementExecutionRequest(settlementId, source.getId(), destination.getId(),
                 command.amount(), command.currency());
@@ -100,7 +116,27 @@ public class SettlementTransactions {
         key.complete(serialize(result));
         idempotencyKeyRepository.save(key);
 
+        writeTerminalStateEvent(settlement, outcome);
+
         return result;
+    }
+
+    private void writeTerminalStateEvent(Settlement settlement, SettlementOutcome outcome) {
+        UUID id = settlement.getId();
+        UUID source = settlement.getSourceAccountId();
+        UUID destination = settlement.getDestinationAccountId();
+        var amount = settlement.getAmount();
+        String currency = settlement.getCurrency();
+        Instant now = Instant.now();
+
+        switch (outcome) {
+            case CONFIRMED -> outboxWriter.write(AGGREGATE_TYPE_SETTLEMENT, id, KafkaTopics.SETTLEMENT_CONFIRMED,
+                    new SettlementConfirmedEvent(id, source, destination, amount, currency, now));
+            case FAILED -> outboxWriter.write(AGGREGATE_TYPE_SETTLEMENT, id, KafkaTopics.SETTLEMENT_FAILED,
+                    new SettlementFailedEvent(id, source, destination, amount, currency, now));
+            case UNKNOWN -> outboxWriter.write(AGGREGATE_TYPE_SETTLEMENT, id, KafkaTopics.SETTLEMENT_UNKNOWN,
+                    new SettlementUnknownEvent(id, source, destination, amount, currency, now));
+        }
     }
 
     private void validate(LedgerAccount source, LedgerAccount destination, CreateSettlementCommand command) {
