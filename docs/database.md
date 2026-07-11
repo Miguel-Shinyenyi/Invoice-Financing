@@ -6,7 +6,7 @@ Describes the Postgres schema, migrations, and indexing decisions for the settle
 
 ## Current state
 
-Phase 1 through Phase 5 tables are built and migrated via Flyway (`V1__init_core_schema.sql` through `V5__invoice_financing.sql`). Nothing remains unbuilt at the schema level.
+Phase 1 through Phase 5.5 tables are built and migrated via Flyway (`V1__init_core_schema.sql` through `V6__fraud_detection.sql`). Nothing remains unbuilt at the schema level.
 
 ### Core engine tables (built, Phase 1)
 
@@ -38,6 +38,10 @@ Ledger entries follow double-entry bookkeeping: a settlement only produces ledge
 - `invoices`: id, business_account_id (FK to `ledger_accounts`, not a separate business entity — see decisions log), customer_reference (free text, the paying customer isn't modeled as an account of any kind), amount, currency, due_date, status (`ISSUED`, `FINANCED`, `REPAID`, `OVERDUE`), external_source_ref (unique — the key `InvoicePaymentSource` is checked by), created_at, updated_at. Indexed on `status` for the repayment scheduler's candidate query.
 - `advances`: id, invoice_id (FK), amount_advanced, fee, disbursed_settlement_id (FK to `settlements`, `NOT NULL` — an advance only exists once disbursement has been attempted), repaid_settlement_id (FK, nullable until repaid), status (`DISBURSED`, `REPAID`, `DEFAULTED` — `DEFAULTED` isn't automated by anything yet), created_at. Indexed on `invoice_id`.
 
+### Fraud detection tables (built, Phase 5.5)
+
+- `fraud_assessments`: id, invoice_id (FK to `invoices`), score `NUMERIC(4,3)` (check between 0 and 1), decision (`ALLOW`, `BLOCK`), reasons (free text, comma-joined rule names, nullable when nothing was flagged), created_at. Indexed on `invoice_id`. One row is written per `financeInvoice` attempt regardless of decision — including attempts that end up `BLOCK`ed, and including "no signal" rows produced by the fail-open path when the ML service is unreachable (see `fraud-detection.md`) — so the table is a full audit trail of every fraud check ever run, not just the ones that passed.
+
 ## Decisions log
 
 | Date | Decision | Reason |
@@ -57,6 +61,8 @@ Ledger entries follow double-entry bookkeeping: a settlement only produces ledge
 | 2026-07-11 | `reconciliation_mismatches`'s partial index on `settlement_id` (open rows only) is a plain index, not a unique constraint | "At most one open mismatch per settlement" is enforced at the application layer (`ReconciliationService` checks before inserting), since it's a business rule that needs a friendly check-then-decide path, not a hard constraint that would throw on violation; the index just makes that check and the "list open mismatches" query fast |
 | 2026-07-12 | `invoices.business_account_id` references `ledger_accounts` directly, not a separate `businesses` table | There's no business/customer entity modeled anywhere in this schema (see the `users.owner_id` decision above, same reasoning) — a `ledger_accounts` row already *is* the business's account from the settlement engine's point of view, so a separate table would just duplicate the id with no new information |
 | 2026-07-12 | `advances.disbursed_settlement_id` is `NOT NULL` | An `Advance` row is only ever created *after* `SettlementService.createSettlement` returns for the disbursement (see `InvoiceService.financeInvoice`) — there's no intermediate "advance approved but not yet disbursed" state to represent |
+| 2026-07-12 | `fraud_assessments.reasons` is a single comma-joined free-text column, not a child table or array column | Matches the existing `reconciliation_mismatches.details` pattern in this schema; reasons are a fixed small set of rule names for display/audit purposes only, never queried on individually |
+| 2026-07-12 | `fraud_assessments` has no foreign key back to `advances` or `settlements` | An assessment can exist without ever producing an advance (the `BLOCK` case) — tying it to `invoices.id` only keeps the row meaningful in both outcomes |
 
 ## Open questions
 

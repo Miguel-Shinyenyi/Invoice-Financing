@@ -26,4 +26,8 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select i from Invoice i where i.id = :id")
     Optional<Invoice> findByIdForUpdate(@Param("id") UUID id);
+
+    long countByCustomerReferenceAndBusinessAccountIdNot(String customerReference, UUID businessAccountId);
+
+    long countByBusinessAccountIdAndStatusIn(UUID businessAccountId, List<InvoiceStatus> statuses);
 }

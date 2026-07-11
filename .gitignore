@@ -36,3 +36,9 @@ build/
 
 ### Mac OS ###
 .DS_Store
+
+### Python (ml-service) ###
+ml-service/.venv/
+__pycache__/
+*.pyc
+.pytest_cache/

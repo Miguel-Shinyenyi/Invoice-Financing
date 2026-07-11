@@ -8,6 +8,7 @@ import com.settlementengine.core.domain.InsufficientBalanceException;
 import com.settlementengine.core.domain.SelfSettlementException;
 import com.settlementengine.core.domain.SettlementInProgressException;
 import com.settlementengine.core.domain.SettlementNotFoundException;
+import com.settlementengine.core.invoicing.FraudBlockedException;
 import com.settlementengine.core.invoicing.InvoiceNotFoundException;
 import com.settlementengine.core.invoicing.InvoiceTransitionException;
 import com.settlementengine.core.reconciliation.MismatchAlreadyResolvedException;
@@ -38,7 +39,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler({CurrencyMismatchException.class, SelfSettlementException.class,
-            InsufficientBalanceException.class})
+            InsufficientBalanceException.class, FraudBlockedException.class})
     public ResponseEntity<ErrorResponse> handleUnprocessable(RuntimeException ex) {
         return respond(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }
