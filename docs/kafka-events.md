@@ -6,10 +6,12 @@ Describes every Kafka topic, its event schema, and which services produce or con
 
 ## Current state
 
-Built for the settlement state machine's four transitions. `reconciliation.*` topics are not yet built — there is no reconciliation engine to produce or consume them until Phase 4.
+Built: all four settlement-transition topics, plus both reconciliation topics.
 
 - `settlement.requested`: published when `createPendingSettlement` commits a `PENDING` settlement. Consumed by the read-model updater (`SettlementEventConsumer`). Not yet consumed by a fraud detection service (Phase 5.5).
-- `settlement.confirmed` / `settlement.failed` / `settlement.unknown`: published when `finalizeSettlement` commits the corresponding terminal state. All consumed by the read-model updater. `settlement.unknown` is not yet consumed by the reconciliation engine (Phase 4).
+- `settlement.confirmed` / `settlement.failed` / `settlement.unknown`: published when `finalizeSettlement` commits the corresponding terminal state. All consumed by the read-model updater. `settlement.unknown` is not separately consumed by the reconciliation engine — reconciliation doesn't listen for it, it *finds* `UNKNOWN` settlements itself each run via `SettlementRepository.findByExternalRefIsNotNull()`.
+- `reconciliation.mismatch_found`: published by `ReconciliationService` when a new mismatch is flagged (not on a repeat detection of an already-`OPEN` one). No consumer yet — planned for an alerting service and the admin dashboard, neither of which exist yet.
+- `reconciliation.resolved`: published both when reconciliation auto-resolves an `UNKNOWN` settlement and when `POST /reconciliation/mismatches/{id}/resolve` manually resolves a mismatch. No consumer yet, same reason.
 
 Publishing goes through a **transactional outbox**, not a direct `KafkaTemplate.send()` inside the settlement transaction:
 
@@ -29,10 +31,12 @@ Publishing goes through a **transactional outbox**, not a direct `KafkaTemplate.
 | 2026-07-11 | Outbox rows are only marked published after a blocking, acknowledged send (`.get()` on the producer future) | An unpublished row is always safe to retry; marking published before the ack risks silently dropping the event if the send actually failed |
 | 2026-07-11 | Read-model consumer upserts in every handler and applies a last-write-wins check by `occurredAt`, instead of assuming `requested` always arrives first | Found empirically: Kafka's ordering guarantee is per-topic-partition, not cross-topic, so terminal-state events routinely arrive before the requested event on a different topic |
 | 2026-07-11 | Read-model upsert also catches and recovers from a duplicate-key race on the first insert | Found empirically under the integration test: two different topics' consumer threads can race to create the same settlement's row; same fallback pattern as `SettlementService`'s idempotency-key race handling |
-| 2026-07-11 | Separate topic per settlement state transition, instead of one generic `settlement.updated` topic | Consumers care about specific transitions, `settlement.unknown` in particular needs its own consumer (reconciliation) that shouldn't have to filter a generic stream |
+| 2026-07-11 | Separate topic per settlement state transition, instead of one generic `settlement.updated` topic | Consumers care about specific transitions; a dedicated `settlement.unknown` topic keeps that stream filterable per-consumer without a generic-event type tag |
 | 2026-07-11 | JSON event payloads, not Avro, for v1 | Faster to iterate on schema early, can migrate to Avro with a schema registry once the shape stabilizes |
+| 2026-07-11 | Reconciliation discovers `UNKNOWN` settlements by direct DB query each run, not by consuming `settlement.unknown` | Reconciliation needs to re-check *every* settlement with an external reference periodically (to catch drift on already-`CONFIRMED`/`FAILED` ones too, not just `UNKNOWN` ones), so a DB scan already has to exist; adding a Kafka consumer just for the `UNKNOWN` subset would be a second, redundant discovery path |
+| 2026-07-11 | `reconciliation.mismatch_found` published once per new mismatch, not once per run that still finds it open | Matches the dedup rule in `reconciliation.md` — a consumer (once one exists) shouldn't get re-notified about the same unresolved mismatch every 60 seconds |
 
 ## Open questions
 
-- Dead-letter queue strategy for failed consumers. The read-model consumer currently relies on Spring Kafka's default retry behavior for a failing record; no DLQ topic is configured yet. Revisit once the reconciliation engine (Phase 4) adds a consumer where silently stuck messages would actually matter.
-- `reconciliation.mismatch_found` / `reconciliation.resolved` topics and their consumers: deferred to Phase 4 alongside the reconciliation engine itself.
+- Dead-letter queue strategy for failed consumers. The read-model consumer currently relies on Spring Kafka's default retry behavior for a failing record; no DLQ topic is configured yet. Revisit once a consumer exists where a silently-stuck message would actually matter (the read model is a non-critical dashboard view; this would matter more for e.g. an alerting consumer on `reconciliation.mismatch_found`).
+- No consumer yet for either reconciliation topic — planned for an alerting service and admin dashboard, neither of which exist yet.

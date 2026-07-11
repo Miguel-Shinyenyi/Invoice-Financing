@@ -15,6 +15,7 @@ import com.settlementengine.core.events.SettlementConfirmedEvent;
 import com.settlementengine.core.events.SettlementFailedEvent;
 import com.settlementengine.core.events.SettlementRequestedEvent;
 import com.settlementengine.core.events.SettlementUnknownEvent;
+import com.settlementengine.core.gateway.GatewayResult;
 import com.settlementengine.core.gateway.SettlementExecutionRequest;
 import com.settlementengine.core.gateway.SettlementOutcome;
 import com.settlementengine.core.outbox.OutboxWriter;
@@ -86,10 +87,14 @@ public class SettlementTransactions {
     }
 
     @Transactional
-    public SettlementResult finalizeSettlement(UUID settlementId, SettlementOutcome outcome) {
+    public SettlementResult finalizeSettlement(UUID settlementId, GatewayResult gatewayResult) {
+        SettlementOutcome outcome = gatewayResult.outcome();
         Settlement settlement = settlementRepository.findById(settlementId)
                 .orElseThrow(() -> new IllegalStateException("Settlement " + settlementId + " not found during finalize"));
         settlement.transitionTo(outcome.toSettlementStatus());
+        if (gatewayResult.externalRef() != null) {
+            settlement.setExternalRef(gatewayResult.externalRef());
+        }
 
         if (outcome == SettlementOutcome.CONFIRMED) {
             LedgerAccount source = ledgerAccountRepository.findById(settlement.getSourceAccountId())

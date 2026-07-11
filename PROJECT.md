@@ -133,7 +133,7 @@ Keep this section accurate whenever the run/access process changes — see `docs
 8. Frontend (Next.js dashboard)
 9. Load and correctness testing, including chaos testing for network failure and duplicate delivery scenarios
 
-Current phase: **Phase 1, Phase 2, and Phase 3, done. Phase 4 (reconciliation engine) not yet started.**
+Current phase: **Phase 1 through Phase 4, done. Phase 5 (invoice financing application layer) not yet started.**
 
 ## Repo structure decision
 
@@ -175,6 +175,13 @@ Update this section every time a phase starts or finishes. Keep entries short.
 | 2026-07-11 | Phase 3 | Done | Full test suite (92 tests): unit tests for outbox/publisher/consumer plus a Testcontainers integration test proving the full DB write → outbox → Kafka → consumer → read model loop against a real broker; also manually verified end-to-end against a running instance with real scheduled timing (no manual triggers) |
 | 2026-07-11 | Phase 3 | Fixed | Assumed same partition key gives ordering across topics — it doesn't; Kafka only orders within one topic-partition, so `settlement.confirmed` was observed arriving before `settlement.requested`. Fixed: every consumer handler upserts, with a last-write-wins check by event timestamp so a late `requested` can't downgrade an already-`CONFIRMED` row |
 | 2026-07-11 | Phase 3 | Fixed | Second race found under the same integration test: two different topics' consumer threads racing to insert the same settlement's read-model row for the first time. Fixed with the same insert-race-and-fallback pattern already used in `SettlementService` |
+| 2026-07-11 | Phase 4 | Done | Gateway refactored to return an external reference alongside its outcome (`GatewayResult`); `Settlement.externalRef` now actually gets populated, which reconciliation needs to match by reference |
+| 2026-07-11 | Phase 4 | Done | `MockExternalSystem` built: one component playing both `ExternalSettlementGateway` and `ExternalReconciliationSource`, backed by a shared in-memory record per reference, with `forget`/`corrupt` test hooks to inject drift |
+| 2026-07-11 | Phase 4 | Done | Schema: `reconciliation_runs`, `reconciliation_mismatches` (Flyway V4) |
+| 2026-07-11 | Phase 4 | Done | `ReconciliationService` built with TDD (12 tests covering every branch): exact-reference matching, grace-period-aware no-match handling, `UNKNOWN` auto-resolution (reusing `SettlementTransactions.finalizeSettlement`), mismatch flagging with dedup, per-settlement error isolation so one bad record doesn't fail the whole run |
+| 2026-07-11 | Phase 4 | Done | `ReconciliationScheduler` (60s default) plus `POST /reconciliation/runs`, `GET /reconciliation/mismatches`, `POST /reconciliation/mismatches/{id}/resolve` (all `ADMIN`/`SUPPORT` only), with audit logging extended to these actions |
+| 2026-07-11 | Phase 4 | Done | Full test suite (116 tests): reconciliation unit + integration tests proving both the auto-resolve-updates-the-ledger path and the mismatch-flagged-not-auto-resolved path against real Postgres; also manually verified end-to-end against a running instance (settlement → reconciliation run → matched, plus role enforcement and Swagger listing) |
+| 2026-07-11 | Phase 4 | Fixed | `AbstractIntegrationTest`'s shared static Postgres container field, combined with Spring's test context caching, could hand a test class a cached context pointing at an already-dead container port after another class's container restarted — added `@DirtiesContext(classMode = AFTER_CLASS)` |
 
 ## Rules for working on this project
 

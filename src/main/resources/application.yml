@@ -36,3 +36,6 @@ settlement-engine:
   outbox:
     poll-fixed-delay-ms: ${OUTBOX_POLL_FIXED_DELAY_MS:500}
     batch-size: ${OUTBOX_BATCH_SIZE:100}
+  reconciliation:
+    grace-period-seconds: ${RECONCILIATION_GRACE_PERIOD_SECONDS:300}
+    scheduled-fixed-delay-ms: ${RECONCILIATION_SCHEDULED_FIXED_DELAY_MS:60000}

@@ -6,7 +6,7 @@ Describes the Postgres schema, migrations, and indexing decisions for the settle
 
 ## Current state
 
-Phase 1 core engine tables, Phase 2 security tables, and Phase 3 event-driven tables are built and migrated via Flyway (`V1__init_core_schema.sql`, `V2__security_and_access_control.sql`, `V3__event_driven_layer.sql`). Reconciliation and invoice financing tables are not yet built.
+Phase 1 core engine tables, Phase 2 security tables, Phase 3 event-driven tables, and Phase 4 reconciliation tables are built and migrated via Flyway (`V1__init_core_schema.sql` through `V4__reconciliation_engine.sql`). Only invoice financing tables remain unbuilt.
 
 ### Core engine tables (built, Phase 1)
 
@@ -28,9 +28,13 @@ Ledger entries follow double-entry bookkeeping: a settlement only produces ledge
 - `outbox_events`: id, aggregate_type, aggregate_id, topic, payload (text, JSON), created_at, published_at (nullable). Partial index on `created_at` where `published_at is null`, for efficient polling of the unpublished backlog. Written in the same transaction as the settlement state change it represents (see `reconciliation.md`/`kafka-events.md` for why); a separate scheduled process (`OutboxPublisher`) reads it and marks rows published after a confirmed Kafka send.
 - `settlement_read_model`: settlement_id (PK), source_account_id, destination_account_id, amount, currency, status, updated_at. A CQRS read side populated by `SettlementEventConsumer` off Kafka, not queried by any endpoint yet (no dashboard exists to read it — it exists to prove the event flow is correct, verified via tests and manual end-to-end checks).
 
+### Reconciliation tables (built, Phase 4)
+
+- `reconciliation_runs`: id, started_at, finished_at (nullable while running), records_checked, mismatches_found, status (`RUNNING`, `COMPLETED`, `FAILED`).
+- `reconciliation_mismatches`: id, run_id (FK), settlement_id (FK), internal_state, external_state (nullable — no external record found), details (free text describing the discrepancy), resolution_status (`OPEN`, `RESOLVED`), resolved_at, created_at. Partial index on `settlement_id` where `resolution_status = 'OPEN'`, for the dedup check (don't re-flag a settlement that already has an open mismatch) and the "list open mismatches" endpoint.
+
 ### Not yet built
 
-- `reconciliation_runs`, `reconciliation_mismatches` (Phase 4)
 - `invoices`, `advances` (Phase 5)
 
 ## Decisions log
@@ -48,8 +52,9 @@ Ledger entries follow double-entry bookkeeping: a settlement only produces ledge
 | 2026-07-11 | Double-entry ledger design | Standard for financial systems, makes reconciliation and auditing straightforward |
 | 2026-07-11 | Optimistic locking (`@Version`) on `ledger_accounts.balance` | Prevents lost updates under concurrent writes without holding long locks |
 | 2026-07-11 | `advances` references `disbursed_settlement_id` and `repaid_settlement_id` separately (planned, Phase 5) | An advance has two distinct money movements with independent success/failure/unknown states, collapsing them into one field would lose that |
+| 2026-07-11 | No separate audit trail table for `reconciliation_mismatches`; resolves the open question below | `audit_log` already records who resolved a mismatch and when (via `ReconciliationController`'s `RESOLVE_RECONCILIATION_MISMATCH` action), and `reconciliation_mismatches.details` records why (appended on resolution). A third table would duplicate both without adding information |
+| 2026-07-11 | `reconciliation_mismatches`'s partial index on `settlement_id` (open rows only) is a plain index, not a unique constraint | "At most one open mismatch per settlement" is enforced at the application layer (`ReconciliationService` checks before inserting), since it's a business rule that needs a friendly check-then-decide path, not a hard constraint that would throw on violation; the index just makes that check and the "list open mismatches" query fast |
 
 ## Open questions
 
-- Whether `reconciliation_mismatches` needs its own audit trail separate from `audit_log`, given how central mismatch resolution is to this project. Leaning yes, decide in Phase 4.
-- What happens if balance becomes insufficient between initiation-time validation and the `CONFIRMED` ledger write (a race between two settlements on the same source account). Currently this would surface as a real `InsufficientBalanceException` at finalize time after the external system already confirmed the transfer — a genuine inconsistency that Phase 1 does not attempt to resolve automatically. Revisit when the reconciliation engine (Phase 4) exists, since this is exactly the class of drift it's meant to catch.
+- What happens if balance becomes insufficient between initiation-time validation and the `CONFIRMED` ledger write (a race between two settlements on the same source account). This is exactly the class of drift the reconciliation engine (Phase 4, now built) is positioned to catch via the amount-mismatch path, but no test exercises this specific race yet — revisit if it's ever observed in practice.

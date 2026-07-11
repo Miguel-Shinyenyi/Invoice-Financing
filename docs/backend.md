@@ -31,11 +31,13 @@ A second, separate race was found the same way: the *winning* thread's `finalize
 
 API documentation: `springdoc-openapi-starter-webmvc-ui` is wired in, exposing `/v3/api-docs` and Swagger UI at `/swagger-ui/index.html` (also reachable via `/swagger-ui.html`, which redirects). Controllers and `CreateSettlementRequest` carry `@Operation`/`@ApiResponse`/`@Schema` annotations so the generated docs describe the actual status-code and validation behavior, not just the method signatures — verified manually by starting the app and checking `/v3/api-docs` lists all three endpoints with the expected request/response shapes.
 
-Planned for Phase 4, reconciliation:
+### Reconciliation endpoints (built, Phase 4)
 
-- `POST /reconciliation/runs` - trigger a reconciliation run manually, mainly for testing and admin use, the scheduled job is the primary trigger
-- `GET /reconciliation/mismatches` - list unresolved mismatches
-- `POST /reconciliation/mismatches/{id}/resolve` - manually resolve a mismatch with a recorded reason
+All three require `ADMIN` or `SUPPORT` — unlike the settlement/account `GET` endpoints, nothing here is exposed to `READ_ONLY`, since reconciliation mismatches are internal back-office data, not something a row-level-restricted account holder should see even for their own settlements.
+
+- `POST /reconciliation/runs` - triggers a run synchronously and returns its summary (`recordsChecked`, `mismatchesFound`, `status`). Mainly for testing and admin use; the scheduled job (`ReconciliationScheduler`, 60s default) is the primary trigger.
+- `GET /reconciliation/mismatches` - lists all currently `OPEN` mismatches.
+- `POST /reconciliation/mismatches/{id}/resolve` - body: `reason`. Marks the mismatch `RESOLVED` and appends the reason to its `details`. Returns `404` if not found, `409` if already resolved. Deliberately does **not** itself change the underlying settlement's ledger state — resolving a mismatch is a record-keeping/review action, not a compensating transaction; any actual correction to the settlement is a manual, separate action outside reconciliation's scope for now.
 
 Planned for Phase 5, invoice financing:
 
@@ -53,6 +55,8 @@ Planned for Phase 5, invoice financing:
 | 2026-07-11 | `finalizeSettlement` gets a bounded retry (5 attempts, short backoff) on `TransientDataAccessException`, separate from the insert-race fallback | Found empirically: the winning thread's terminal-state update can deadlock against losing transactions still holding an FK-check share lock on the same `idempotency_keys` row. This is transient and safe to retry on its own, unlike the insert race, which is resolved by reading the winner instead of retrying |
 | 2026-07-11 | Exceptions mapped centrally in `GlobalExceptionHandler`: not-found → 404, currency/self-settlement/balance validation → 422, idempotency conflicts → 409, request validation → 400, `BadCredentialsException`/`InvalidTokenException` → 401 | One place decides HTTP semantics for domain errors instead of scattering status codes across controllers. `AccessDeniedException` (role/row-level denials) deliberately is *not* handled here — it's left to Spring Security's own `ExceptionTranslationFilter` and the custom `AccessDeniedHandler` in `SecurityConfig`, so both AOP-level (`@PreAuthorize`) and in-method (`RowLevelAccessGuard`) denials produce the same 403 shape |
 | 2026-07-11 | REST over GraphQL for v1 | Simpler to secure and test for a first pass, GraphQL can be added later if the frontend needs it |
+| 2026-07-11 | All `/reconciliation/**` endpoints require `ADMIN` or `SUPPORT`, none open to `READ_ONLY` | Unlike settlement/account `GET`s, mismatches are back-office review data, not something an account holder should see even about their own settlements |
+| 2026-07-11 | Resolving a mismatch never mutates the settlement itself | Keeps "did reconciliation decide this" (mismatch resolution, a review action) separate from "did the ledger change" (a settlement transition, which only ever happens through `SettlementTransactions`); conflating them would create a second path that can move settlement state without going through the state machine's single enforcement point |
 
 ## Open questions
 
