@@ -10,6 +10,7 @@ import com.settlementengine.core.gateway.ExternalSettlementGateway;
 import com.settlementengine.core.gateway.SettlementExecutionRequest;
 import com.settlementengine.core.gateway.SettlementOutcome;
 import org.springframework.dao.DataAccessException;
+import org.springframework.dao.TransientDataAccessException;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
@@ -54,7 +55,38 @@ public class SettlementService {
         }
 
         SettlementOutcome outcome = externalSettlementGateway.execute(executionRequest);
-        return settlementTransactions.finalizeSettlement(executionRequest.settlementId(), outcome);
+        return finalizeWithRetry(executionRequest.settlementId(), outcome);
+    }
+
+    private static final int MAX_FINALIZE_ATTEMPTS = 5;
+
+    private SettlementResult finalizeWithRetry(UUID settlementId, SettlementOutcome outcome) {
+        // The settlement row is already committed as PENDING by this point, so retrying only
+        // finalizeSettlement (not the whole createSettlement flow) is safe: other concurrent
+        // callers for the same idempotency key still see IN_PROGRESS while we retry, and each
+        // attempt re-reads fresh state in its own transaction. This specifically handles Postgres
+        // deadlocking the winner's terminal-state update against other losing transactions still
+        // holding a FK-check lock on the same idempotency_keys row from their own (doomed) insert
+        // attempts — a transient condition, not a correctness problem.
+        for (int attempt = 1; attempt <= MAX_FINALIZE_ATTEMPTS; attempt++) {
+            try {
+                return settlementTransactions.finalizeSettlement(settlementId, outcome);
+            } catch (TransientDataAccessException transientFailure) {
+                if (attempt == MAX_FINALIZE_ATTEMPTS) {
+                    throw transientFailure;
+                }
+                sleepBriefly(attempt);
+            }
+        }
+        throw new IllegalStateException("Unreachable");
+    }
+
+    private void sleepBriefly(int attempt) {
+        try {
+            Thread.sleep(20L * attempt);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private SettlementResult handleExisting(IdempotencyKey existing, String requestHash) {
