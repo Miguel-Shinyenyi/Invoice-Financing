@@ -1,3 +1,12 @@
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      show-details: never
+
 spring:
   application:
     name: settlement-engine

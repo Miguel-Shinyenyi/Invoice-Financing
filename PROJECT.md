@@ -148,6 +148,8 @@ cd ml-service && source .venv/bin/activate && python -m pytest test_main.py
 
 Runs on a self-hosted bare-metal server (k3s), not AWS. Setup steps, deploy runbook, and every decision specific to running on a *shared* server are in `docs/server-setup.md`; the Kubernetes manifests are in `infra/k8s/`; the CI/CD pipeline that builds, tests, and deploys on push to `dev` is `.github/workflows/ci.yml` (see `docs/cicd.md`). No public DNS points at this server yet, so it's reached by IP with a self-signed CA (see `docs/kubernetes.md`'s TLS section) rather than a real domain.
 
+**Observability (Phase 7)**: Grafana at `http://<server-ip>:30030` (default `admin`/`admin`, not yet changed), Prometheus at `:30090`, Alertmanager at `:30093`, Jaeger at `:30686`. See `docs/observability.md`.
+
 Keep this section accurate whenever the run/access process changes — see `docs/DOCS_MAINTENANCE.md`.
 
 ## Build phases
@@ -163,7 +165,7 @@ Keep this section accurate whenever the run/access process changes — see `docs
 8. Frontend (Next.js dashboard)
 9. Load and correctness testing, including chaos testing for network failure and duplicate delivery scenarios
 
-Current phase: **Phase 1 through Phase 6, done — self-hosted on a bare-metal server (k3s, not AWS EKS), see `docs/server-setup.md`. Phases 7-9 not yet started.**
+Current phase: **Phase 1 through Phase 7, done — metrics/logs/traces/alerts (Prometheus, Grafana, Loki, Jaeger, self-hosted) all deployed and verified end to end on the k3s cluster, see `docs/observability.md`. Phases 8-9 not yet started.**
 
 ## Repo structure decision
 
@@ -236,6 +238,13 @@ Update this section every time a phase starts or finishes. Keep entries short.
 | 2026-07-17 | Phase 6 | Done | Full stack deployed and manually verified end-to-end against the live Kubernetes environment over properly CA-verified HTTPS (not just `-k`): login → submit invoice → finance (hit the real deployed ml-service, not fail-open) → confirmed ledger balances, read model, and outbox events all correct |
 | 2026-07-17 | Phase 6 | Fixed | Kafka crash-looped on first boot ("channel manager timed out" during controller self-registration) — fixed by routing `KAFKA_CONTROLLER_QUORUM_VOTERS` through `localhost` instead of the k8s Service DNS name (removes unnecessary Service/DNS indirection for a single pod registering with itself), plus setting `CLUSTER_ID` explicitly (the official image silently skips storage formatting without it — also fixed in the local `docker-compose.yml` for consistency) |
 | 2026-07-17 | Phase 6 | Fixed | `curl -k` showed a "working" HTTPS endpoint that was actually serving Traefik's own default self-signed cert, not the cert-manager-issued one — Ingress's SNI-based cert matching needs a real hostname, which a bare-IP deployment doesn't have. Only caught by inspecting the served certificate directly (`openssl s_client`), not by `-k`. Fixed with a Traefik `TLSStore` default certificate |
+| 2026-07-17 | Phase 7 | Done | Metrics: `spring-boot-starter-actuator` + Micrometer/Prometheus on the backend (plus a hand-added `settlement.outcome` counter, TDD), `prometheus-fastapi-instrumentator` on ml-service. `/actuator/**` kept off the public Ingress via explicit controller path prefixes rather than a `/` catch-all |
+| 2026-07-17 | Phase 7 | Done | Logs: JSON structured logging on both services (`logstash-logback-encoder` / a small custom Python formatter), `RequestIdFilter` (TDD) correlating a request across both services' logs, `settlementId`/`invoiceId` in MDC. Loki + Promtail deployed, scoped to just this project's namespaces |
+| 2026-07-17 | Phase 7 | Done | Traces: OpenTelemetry Java agent (backend) and Python auto-instrumentation (ml-service), zero code changes, exported to a self-hosted Jaeger. Verified one trace spans `POST /invoices/{id}/finance` through the ml-service `/score` call and back |
+| 2026-07-17 | Phase 7 | Done | Alerts: Prometheus + Alertmanager, rules for backend/ml-service downtime and settlement failure-rate spikes. No real paging integration (no on-call for a portfolio project) — verified by scaling ml-service to zero and watching the alert fire, then clear on recovery |
+| 2026-07-17 | Phase 7 | Done | Grafana deployed with Prometheus/Loki/Postgres datasources (the fraud-score dashboard queries `fraud_assessments` directly) and hand-written dashboards; full stack manually verified end to end against the live deployment |
+| 2026-07-17 | Phase 7 | Fixed | Jaeger 2.x isn't published to Docker Hub yet (`ImagePullBackOff` on `jaegertracing/all-in-one:2.19.0`) — switched to `1.72.0`. Separately, both OTel SDKs needed `OTEL_EXPORTER_OTLP_PROTOCOL=grpc` set explicitly, since the default (`http/protobuf`, port 4318) doesn't match Jaeger's gRPC-only port 4317 |
+| 2026-07-17 | Phase 7 | Fixed | Promtail shipped zero logs despite correct RBAC and correct file paths — two separate bugs: log files are root-owned 640 and Promtail doesn't run as root by default (fixed with `runAsUser: 0`), and Promtail's Kubernetes pod discovery silently scopes itself to a `spec.nodeName` field selector built from `HOSTNAME`, which defaults to the pod's own name inside a container, not the actual node name (fixed via the Downward API) |
 
 ## Rules for working on this project
 

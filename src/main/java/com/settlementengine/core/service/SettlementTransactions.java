@@ -23,6 +23,7 @@ import com.settlementengine.core.repository.IdempotencyKeyRepository;
 import com.settlementengine.core.repository.LedgerAccountRepository;
 import com.settlementengine.core.repository.LedgerEntryRepository;
 import com.settlementengine.core.repository.SettlementRepository;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,19 +42,22 @@ public class SettlementTransactions {
     private final IdempotencyKeyRepository idempotencyKeyRepository;
     private final ObjectMapper objectMapper;
     private final OutboxWriter outboxWriter;
+    private final MeterRegistry meterRegistry;
 
     public SettlementTransactions(LedgerAccountRepository ledgerAccountRepository,
                                    SettlementRepository settlementRepository,
                                    LedgerEntryRepository ledgerEntryRepository,
                                    IdempotencyKeyRepository idempotencyKeyRepository,
                                    ObjectMapper objectMapper,
-                                   OutboxWriter outboxWriter) {
+                                   OutboxWriter outboxWriter,
+                                   MeterRegistry meterRegistry) {
         this.ledgerAccountRepository = ledgerAccountRepository;
         this.settlementRepository = settlementRepository;
         this.ledgerEntryRepository = ledgerEntryRepository;
         this.idempotencyKeyRepository = idempotencyKeyRepository;
         this.objectMapper = objectMapper;
         this.outboxWriter = outboxWriter;
+        this.meterRegistry = meterRegistry;
     }
 
     @Transactional(readOnly = true)
@@ -114,6 +118,7 @@ public class SettlementTransactions {
         }
 
         settlementRepository.save(settlement);
+        meterRegistry.counter("settlement.outcome", "outcome", outcome.name()).increment();
 
         SettlementResult result = SettlementResult.from(settlement);
         IdempotencyKey key = idempotencyKeyRepository.findById(settlement.getIdempotencyKey())

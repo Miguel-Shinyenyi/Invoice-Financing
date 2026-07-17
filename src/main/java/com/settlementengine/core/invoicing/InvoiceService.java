@@ -11,6 +11,7 @@ import com.settlementengine.core.repository.LedgerAccountRepository;
 import com.settlementengine.core.service.CreateSettlementCommand;
 import com.settlementengine.core.service.SettlementResult;
 import com.settlementengine.core.service.SettlementService;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -66,23 +67,28 @@ public class InvoiceService {
     }
 
     public Advance financeInvoice(UUID invoiceId, UUID idempotencyKey) {
-        Invoice invoice = invoiceRepository.findById(invoiceId)
-                .orElseThrow(() -> new InvoiceNotFoundException(invoiceId));
-        LedgerAccount businessAccount = ledgerAccountRepository.findById(invoice.getBusinessAccountId())
-                .orElseThrow(() -> new AccountNotFoundException(invoice.getBusinessAccountId()));
+        MDC.put("invoiceId", invoiceId.toString());
+        try {
+            Invoice invoice = invoiceRepository.findById(invoiceId)
+                    .orElseThrow(() -> new InvoiceNotFoundException(invoiceId));
+            LedgerAccount businessAccount = ledgerAccountRepository.findById(invoice.getBusinessAccountId())
+                    .orElseThrow(() -> new AccountNotFoundException(invoice.getBusinessAccountId()));
 
-        BigDecimal amountAdvanced = invoice.getAmount().multiply(advanceRate).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal fee = invoice.getAmount().multiply(feeRate).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal amountAdvanced = invoice.getAmount().multiply(advanceRate).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal fee = invoice.getAmount().multiply(feeRate).setScale(2, RoundingMode.HALF_UP);
 
-        runFraudCheck(invoice, businessAccount, amountAdvanced);
+            runFraudCheck(invoice, businessAccount, amountAdvanced);
 
-        Invoice claimed = invoiceTransactions.claimForFinancing(invoiceId);
+            Invoice claimed = invoiceTransactions.claimForFinancing(invoiceId);
 
-        CreateSettlementCommand disbursement = new CreateSettlementCommand(
-                platformAccountId, claimed.getBusinessAccountId(), amountAdvanced, claimed.getCurrency());
-        SettlementResult result = settlementService.createSettlement(idempotencyKey, disbursement);
+            CreateSettlementCommand disbursement = new CreateSettlementCommand(
+                    platformAccountId, claimed.getBusinessAccountId(), amountAdvanced, claimed.getCurrency());
+            SettlementResult result = settlementService.createSettlement(idempotencyKey, disbursement);
 
-        return invoiceTransactions.recordAdvance(invoiceId, amountAdvanced, fee, result.settlementId());
+            return invoiceTransactions.recordAdvance(invoiceId, amountAdvanced, fee, result.settlementId());
+        } finally {
+            MDC.remove("invoiceId");
+        }
     }
 
     private void runFraudCheck(Invoice invoice, LedgerAccount businessAccount, BigDecimal requestedAdvanceAmount) {

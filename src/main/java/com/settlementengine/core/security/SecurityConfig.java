@@ -2,6 +2,7 @@ package com.settlementengine.core.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.settlementengine.core.api.ErrorResponse;
+import com.settlementengine.core.observability.RequestIdFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
@@ -30,18 +31,24 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
                                                      JwtAuthenticationFilter jwtAuthenticationFilter,
+                                                     RequestIdFilter requestIdFilter,
                                                      ObjectMapper objectMapper) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")
+                        // /actuator/** is never routed through the public Ingress (see
+                        // infra/k8s/06-backend.yaml) -- only reachable in-cluster, where
+                        // Prometheus scrapes it directly via the backend's ClusterIP Service.
+                        // Network isolation, not auth, is what keeps this endpoint private.
+                        .requestMatchers("/auth/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html", "/actuator/**")
                         .permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(jsonAuthenticationEntryPoint(objectMapper))
                         .accessDeniedHandler(jsonAccessDeniedHandler(objectMapper)))
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(requestIdFilter, JwtAuthenticationFilter.class);
         return http.build();
     }
 

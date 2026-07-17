@@ -50,6 +50,21 @@ spec:
                   key: JWT_SECRET
             - name: FRAUD_DETECTION_BASE_URL
               value: http://fraud-detection-ml:8000
+            - name: OTEL_SERVICE_NAME
+              value: settlement-engine-backend
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://jaeger:4317
+            - name: OTEL_TRACES_EXPORTER
+              value: otlp
+            # OTel's SDK defaults to http/protobuf (port 4318), not gRPC (4317), when the
+            # protocol isn't set explicitly -- found via "Failed to export spans" errors from
+            # an HTTP client talking to Jaeger's gRPC-only port 4317.
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: grpc
+            - name: OTEL_METRICS_EXPORTER
+              value: none
+            - name: OTEL_LOGS_EXPORTER
+              value: none
           envFrom:
             - configMapRef:
                 name: backend-config
@@ -124,7 +139,59 @@ spec:
   rules:
     - http:
         paths:
-          - path: /
+          # Explicit prefixes, not a "/" catch-all (Phase 7): keeps /actuator/** (metrics)
+          # off the public NodePort entirely -- Prometheus reaches it in-cluster via the
+          # backend's ClusterIP Service instead. See SecurityConfig.java's matching comment.
+          - path: /accounts
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8080
+          - path: /auth
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8080
+          - path: /invoices
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8080
+          - path: /reconciliation
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8080
+          - path: /settlements
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8080
+          - path: /v3/api-docs
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8080
+          - path: /swagger-ui
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8080
+          - path: /webjars
             pathType: Prefix
             backend:
               service:

@@ -2,9 +2,16 @@ from typing import List
 from uuid import UUID
 
 from fastapi import FastAPI
+from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel
 
+from logging_config import configure_json_logging, install_request_id_middleware
+
+configure_json_logging()
+
 app = FastAPI(title="Fraud Detection Service")
+install_request_id_middleware(app)
+Instrumentator().instrument(app).expose(app)
 
 
 class ScoreRequest(BaseModel):
