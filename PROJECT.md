@@ -54,8 +54,8 @@ settlement-engine/
     security.md                <- auth, RBAC, access control
     kafka-events.md              <- topics, event schemas, consumers/producers
     fraud-detection.md            <- ML service, features, model choices
-    storage.md                     <- S3 structure, presigned URLs, audit logs
-    aws-setup.md                    <- AWS account setup and security baseline
+    storage.md                     <- object storage structure, presigned URLs, audit logs
+    server-setup.md                 <- self-hosted server setup and security baseline (was aws-setup.md)
     kubernetes.md                    <- cluster layout, deployments, scaling
     observability.md                  <- metrics, logs, traces, dashboards
     frontend.md                        <- Next.js app structure and pages
@@ -65,7 +65,7 @@ settlement-engine/
   backend/                                <- Spring Boot source
   ml-service/                              <- Python fraud detection source
   frontend/                                 <- Next.js source
-  infra/                                     <- Docker, Kubernetes manifests, GitHub Actions, AWS configs
+  infra/                                     <- Docker, Kubernetes manifests, GitHub Actions, server configs
 ```
 
 ## Running the application
@@ -144,6 +144,10 @@ The Python `ml-service` has its own test suite, run separately:
 cd ml-service && source .venv/bin/activate && python -m pytest test_main.py
 ```
 
+**Deployed instance (Phase 6):**
+
+Runs on a self-hosted bare-metal server (k3s), not AWS. Setup steps, deploy runbook, and every decision specific to running on a *shared* server are in `docs/server-setup.md`; the Kubernetes manifests are in `infra/k8s/`; the CI/CD pipeline that builds, tests, and deploys on push to `dev` is `.github/workflows/ci.yml` (see `docs/cicd.md`). No public DNS points at this server yet, so it's reached by IP with a self-signed CA (see `docs/kubernetes.md`'s TLS section) rather than a real domain.
+
 Keep this section accurate whenever the run/access process changes — see `docs/DOCS_MAINTENANCE.md`.
 
 ## Build phases
@@ -159,7 +163,7 @@ Keep this section accurate whenever the run/access process changes — see `docs
 8. Frontend (Next.js dashboard)
 9. Load and correctness testing, including chaos testing for network failure and duplicate delivery scenarios
 
-Current phase: **Phase 1 through Phase 5.5, done — the core engine, its first application layer, and fraud detection are complete. The infrastructure phases (6-9) not yet started.**
+Current phase: **Phase 1 through Phase 6, done — self-hosted on a bare-metal server (k3s, not AWS EKS), see `docs/server-setup.md`. Phases 7-9 not yet started.**
 
 ## Repo structure decision
 
@@ -221,6 +225,17 @@ Update this section every time a phase starts or finishes. Keep entries short.
 | 2026-07-12 | Phase 5.5 | Done | Fraud check is synchronous HTTP, not async Kafka consumption, resolving a self-contradiction in the original plan (an async consumer can't reliably block a synchronous disbursement decision); fails open (allows financing) if the ML service is unreachable, since it's advisory, not load-bearing |
 | 2026-07-12 | Phase 5.5 | Done | Full test suite (178 Java tests + 9 Python tests): all passing; manually verified end-to-end against running instances of the backend, Postgres, Kafka, and the ml-service — a clean invoice (ALLOW), a combined-signal invoice (BLOCK, 422, invoice left `ISSUED`), and the fail-open path with the ml-service stopped |
 | 2026-07-12 | Phase 5.5 | Fixed | The JDK `HttpClient`'s default HTTP/2-cleartext-upgrade attempt (`Upgrade: h2c` header) silently caused uvicorn to treat every real fraud-check POST body as missing (`422`, "Field required"), even though the JDK-`HttpServer`-backed unit tests passed — only caught by manual end-to-end testing against the real ml-service, not the automated suite. Fixed by forcing `HttpClient.Version.HTTP_1_1` in `HttpFraudDetectionClient` |
+| 2026-07-17 | Phase 6 | Started | Decided to self-host on a bare-metal Ubuntu server (ssdnodes) with k3s + MinIO instead of AWS (EKS/S3) — no AWS account exists for this project. `docs/aws-setup.md` renamed to `docs/server-setup.md` and rewritten |
+| 2026-07-17 | Phase 6 | Found | The server turned out to be shared with other tenants (other accounts, an active Docker Swarm, containers already bound to host 80/443/5000/etc.), not a clean dedicated box as first assumed — every subsequent step scoped to avoid touching anything outside this project's own footprint (see `docs/server-setup.md`'s decisions log) |
+| 2026-07-17 | Phase 6 | Done | k3s installed single-node with `--disable=servicelb` and Traefik pinned to fixed NodePorts 30080/30443 (`kubectl patch`), since the default ServiceLB behavior would have fought other tenants for host ports 80/443. Kubeconfig kept root/owner-only (not world-readable), API server (6443) not exposed externally — `kubectl` only from an on-box SSH session |
+| 2026-07-17 | Phase 6 | Done | Local Docker registry (`registry:2` on `127.0.0.1:15000`, port 5000 was already taken) wired into k3s containerd as a trusted insecure registry; verified end-to-end with a real push + pod pull |
+| 2026-07-17 | Phase 6 | Done | cert-manager v1.21.0 installed with a two-step self-signed CA (bootstrap issuer → root CA cert → CA-type issuer for leaf certs), since no domain exists yet for Let's Encrypt. A clean one-line swap to an ACME issuer later |
+| 2026-07-17 | Phase 6 | Done | Multi-stage `Dockerfile`s for both services (Maven/JDK build stage → slim JRE runtime for the backend; `python:3.13-slim` for ml-service), both non-root, both verified by building and running locally before ever touching the server |
+| 2026-07-17 | Phase 6 | Done | `infra/k8s/` manifests written for every component (Postgres, Kafka, MinIO, ml-service, backend + Ingress + leaf Certificate), single `invoice-financing` namespace, no staging/production split (superseding the original plan — see `kubernetes.md`/`cicd.md` decisions logs) |
+| 2026-07-17 | Phase 6 | Done | `.github/workflows/ci.yml` (test on every push, self-hosted-runner deploy on push to `dev`) plus a GitHub Actions self-hosted runner installed as a systemd service on the box, polling outbound so no inbound port is needed |
+| 2026-07-17 | Phase 6 | Done | Full stack deployed and manually verified end-to-end against the live Kubernetes environment over properly CA-verified HTTPS (not just `-k`): login → submit invoice → finance (hit the real deployed ml-service, not fail-open) → confirmed ledger balances, read model, and outbox events all correct |
+| 2026-07-17 | Phase 6 | Fixed | Kafka crash-looped on first boot ("channel manager timed out" during controller self-registration) — fixed by routing `KAFKA_CONTROLLER_QUORUM_VOTERS` through `localhost` instead of the k8s Service DNS name (removes unnecessary Service/DNS indirection for a single pod registering with itself), plus setting `CLUSTER_ID` explicitly (the official image silently skips storage formatting without it — also fixed in the local `docker-compose.yml` for consistency) |
+| 2026-07-17 | Phase 6 | Fixed | `curl -k` showed a "working" HTTPS endpoint that was actually serving Traefik's own default self-signed cert, not the cert-manager-issued one — Ingress's SNI-based cert matching needs a real hostname, which a bare-IP deployment doesn't have. Only caught by inspecting the served certificate directly (`openssl s_client`), not by `-k`. Fixed with a Traefik `TLSStore` default certificate |
 
 ## Rules for working on this project
 

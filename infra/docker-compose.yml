@@ -13,6 +13,12 @@ services:
   kafka:
     image: apache/kafka:3.8.0
     environment:
+      # Required for the official image to format its storage on first boot -- without it,
+      # formatting is silently skipped and the broker fails with "No readable meta.properties
+      # files found." (found while deploying the same image to Kubernetes in Phase 6; this
+      # container just never hit a truly fresh start locally since it has no declared volume
+      # and tends to get reused across `docker compose up`/`stop` cycles rather than recreated).
+      CLUSTER_ID: Uz0aojrmT1G9xgr4ZUQ1eQ
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,PLAINTEXT_HOST://:29092
