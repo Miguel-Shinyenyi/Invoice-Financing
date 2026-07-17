@@ -27,12 +27,18 @@ jobs:
       - working-directory: ml-service
         run: |
           pip install -r requirements-dev.txt
-          python -m pytest test_main.py
+          python -m pytest
 
-  deploy:
+  # Every merge to dev deploys straight to staging (the single environment described in
+  # docs/cicd.md -- there's no separate production yet, see that doc's decisions log).
+  deploy-staging:
+    name: Deploy to staging
     needs: [test-backend, test-ml-service]
     if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
     runs-on: self-hosted
+    environment:
+      name: staging
+      url: https://107.155.122.29:30443/swagger-ui/index.html
     steps:
       - uses: actions/checkout@v4
       - name: Build and push backend image

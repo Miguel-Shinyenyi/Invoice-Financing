@@ -144,13 +144,22 @@ The Python `ml-service` has its own test suite, run separately:
 cd ml-service && source .venv/bin/activate && python -m pytest test_main.py
 ```
 
-**Deployed instance (Phase 6):**
+**Deployed instance — staging (Phase 6):**
 
-Runs on a self-hosted bare-metal server (k3s), not AWS. Setup steps, deploy runbook, and every decision specific to running on a *shared* server are in `docs/server-setup.md`; the Kubernetes manifests are in `infra/k8s/`; the CI/CD pipeline that builds, tests, and deploys on push to `dev` is `.github/workflows/ci.yml` (see `docs/cicd.md`). No public DNS points at this server yet, so it's reached by IP with a self-signed CA (see `docs/kubernetes.md`'s TLS section) rather than a real domain.
+Runs on a self-hosted bare-metal server (k3s), not AWS. **Every merge to `dev` deploys straight to staging automatically** (`.github/workflows/ci.yml`'s `deploy-staging` job — see `docs/cicd.md`; there's no production environment yet, see that doc's decisions log for why). Setup steps, deploy runbook, and every decision specific to running on a *shared* server are in `docs/server-setup.md`; the Kubernetes manifests are in `infra/k8s/`. No public DNS points at this server yet, so everything below is reached by IP.
 
-**Observability (Phase 7)**: Grafana at `http://<server-ip>:30030` (default `admin`/`admin`, not yet changed), Prometheus at `:30090`, Alertmanager at `:30093`, Jaeger at `:30686`. See `docs/observability.md`.
+**Deployed links (staging, `107.155.122.29`):**
 
-Keep this section accurate whenever the run/access process changes — see `docs/DOCS_MAINTENANCE.md`.
+| Service | URL | Notes |
+|---------|-----|-------|
+| Backend API | `https://107.155.122.29:30443` | Self-signed CA (see `docs/kubernetes.md`'s TLS section) — `curl -k` or trust the CA cert pulled from the `invoice-financing-ca-secret` Secret |
+| Swagger UI | `https://107.155.122.29:30443/swagger-ui/index.html` | Same cert as above |
+| Grafana | `http://107.155.122.29:30030` | Plain HTTP, no Ingress/TLS. **Default `admin`/`admin` login, not yet changed** — see `docs/observability.md`'s open questions |
+| Prometheus | `http://107.155.122.29:30090` | Plain HTTP |
+| Alertmanager | `http://107.155.122.29:30093` | Plain HTTP |
+| Jaeger UI | `http://107.155.122.29:30686` | Plain HTTP |
+
+None of these except the backend API go through Traefik/cert-manager — the observability UIs are plain NodePorts (see `docs/kubernetes.md`'s decisions log for why). Keep this table accurate whenever a port or service changes — see `docs/DOCS_MAINTENANCE.md`.
 
 ## Build phases
 
