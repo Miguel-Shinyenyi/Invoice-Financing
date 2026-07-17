@@ -17,6 +17,7 @@ Phase 2 is built. Every endpoint except `/auth/**` and the OpenAPI/Swagger paths
 - **Password storage**: BCrypt (`org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder`), industry standard for password hashing (adaptive cost, salted).
 - **JWT secret**: read from `JWT_SECRET` env var, with a dev-only placeholder default in `application.yml` (same pattern as the DB password default) — must be overridden for anything beyond local dev.
 - **No user registration endpoint yet** — users are seeded directly into the `users` table for now. Not in Phase 2 scope; revisit if/when self-service signup is needed.
+- **`/actuator/**` (Phase 7)**: `permitAll()`'d in `SecurityConfig`, but not reachable through the public Ingress at all (see `observability.md`/`kubernetes.md`) — network isolation, not auth, is what actually keeps metrics private. `RequestIdFilter` (also Phase 7) runs before the JWT filter on every request, including unauthenticated ones, so every response (even a `401`) carries a correlatable `X-Request-Id`.
 
 ## Decisions log
 

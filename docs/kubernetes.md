@@ -6,7 +6,7 @@ Describes how the platform's services get deployed and scaled on Kubernetes.
 
 ## Current state
 
-Built (Phase 6). A single-node k3s cluster on a bare-metal server (see `docs/server-setup.md`) — not AWS/EKS, see the decisions log for why. Everything runs in one `invoice-financing` namespace:
+Built (Phase 6, extended in Phase 7 with the observability stack — see `docs/observability.md` for what runs there). A single-node k3s cluster on a bare-metal server (see `docs/server-setup.md`) — not AWS/EKS, see the decisions log for why. Everything runs in one `invoice-financing` namespace:
 
 - `postgres`, `kafka`, `minio`: each a single-replica `Deployment` (strategy `Recreate`, since each mounts a `ReadWriteOnce` PVC on the `local-path` storage class k3s ships with) + a `PersistentVolumeClaim` + a `ClusterIP` Service. None are exposed outside the cluster.
 - `fraud-detection-ml`: single-replica `Deployment` + `ClusterIP` Service, internal only — called by the backend, never reached from outside.
@@ -30,6 +30,7 @@ This server already runs other tenants' workloads (see `docs/server-setup.md`), 
 - Traefik's Service is patched to `NodePort` with fixed ports **30080/30443** instead of the default random high ports.
 - The local image registry (`localhost:15000`, not the conventional 5000 — already taken) is bound to `127.0.0.1` only.
 - No public DNS/domain, hence the self-signed-CA TLS approach above.
+- Phase 7's observability UIs are also plain NodePorts, each checked against the box's existing services before use: Grafana **30030**, Prometheus **30090**, Alertmanager **30093**, Jaeger **30686**. See `observability.md` for what each one is.
 
 ### Not built
 

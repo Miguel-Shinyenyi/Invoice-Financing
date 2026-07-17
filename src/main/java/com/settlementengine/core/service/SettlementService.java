@@ -9,6 +9,7 @@ import com.settlementengine.core.domain.SettlementInProgressException;
 import com.settlementengine.core.gateway.ExternalSettlementGateway;
 import com.settlementengine.core.gateway.GatewayResult;
 import com.settlementengine.core.gateway.SettlementExecutionRequest;
+import org.slf4j.MDC;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.TransientDataAccessException;
 import org.springframework.stereotype.Service;
@@ -54,8 +55,13 @@ public class SettlementService {
             return handleExisting(winner, requestHash);
         }
 
-        GatewayResult gatewayResult = externalSettlementGateway.execute(executionRequest);
-        return finalizeWithRetry(executionRequest.settlementId(), gatewayResult);
+        MDC.put("settlementId", executionRequest.settlementId().toString());
+        try {
+            GatewayResult gatewayResult = externalSettlementGateway.execute(executionRequest);
+            return finalizeWithRetry(executionRequest.settlementId(), gatewayResult);
+        } finally {
+            MDC.remove("settlementId");
+        }
     }
 
     private static final int MAX_FINALIZE_ATTEMPTS = 5;

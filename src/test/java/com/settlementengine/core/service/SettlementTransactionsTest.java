@@ -21,6 +21,7 @@ import com.settlementengine.core.repository.IdempotencyKeyRepository;
 import com.settlementengine.core.repository.LedgerAccountRepository;
 import com.settlementengine.core.repository.LedgerEntryRepository;
 import com.settlementengine.core.repository.SettlementRepository;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -56,6 +57,7 @@ class SettlementTransactionsTest {
     private OutboxWriter outboxWriter;
 
     private SettlementTransactions settlementTransactions;
+    private SimpleMeterRegistry meterRegistry;
 
     private UUID sourceId;
     private UUID destinationId;
@@ -65,9 +67,10 @@ class SettlementTransactionsTest {
     @BeforeEach
     void setUp() {
         ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
+        meterRegistry = new SimpleMeterRegistry();
         settlementTransactions = new SettlementTransactions(
                 ledgerAccountRepository, settlementRepository, ledgerEntryRepository, idempotencyKeyRepository,
-                objectMapper, outboxWriter);
+                objectMapper, outboxWriter, meterRegistry);
 
         sourceId = UUID.randomUUID();
         destinationId = UUID.randomUUID();
@@ -180,6 +183,7 @@ class SettlementTransactionsTest {
         assertThat(key.getResponseSnapshot()).contains("CONFIRMED");
 
         verify(outboxWriter).write(eq("SETTLEMENT"), eq(settlementId), eq(KafkaTopics.SETTLEMENT_CONFIRMED), any());
+        assertThat(meterRegistry.counter("settlement.outcome", "outcome", "CONFIRMED").count()).isEqualTo(1.0);
     }
 
     @Test
@@ -202,6 +206,7 @@ class SettlementTransactionsTest {
         assertThat(key.getStatus()).isEqualTo(IdempotencyKeyStatus.COMPLETED);
 
         verify(outboxWriter).write(eq("SETTLEMENT"), eq(settlementId), eq(KafkaTopics.SETTLEMENT_FAILED), any());
+        assertThat(meterRegistry.counter("settlement.outcome", "outcome", "FAILED").count()).isEqualTo(1.0);
     }
 
     @Test
@@ -222,5 +227,6 @@ class SettlementTransactionsTest {
         verify(ledgerEntryRepository, never()).save(any());
 
         verify(outboxWriter).write(eq("SETTLEMENT"), eq(settlementId), eq(KafkaTopics.SETTLEMENT_UNKNOWN), any());
+        assertThat(meterRegistry.counter("settlement.outcome", "outcome", "UNKNOWN").count()).isEqualTo(1.0);
     }
 }
