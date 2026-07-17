@@ -6,11 +6,12 @@ Describes the build, test, and deployment pipeline.
 
 ## Current state
 
-Built (Phase 6). `.github/workflows/ci.yml`, three jobs:
+Built (Phase 6, extended in Phase 8 for the frontend). `.github/workflows/ci.yml`, four jobs:
 
 - `test-backend` (GitHub-hosted `ubuntu-latest`): `./mvnw test` — full Java suite, including the Testcontainers integration tests (GitHub-hosted runners ship with Docker preinstalled).
 - `test-ml-service` (GitHub-hosted `ubuntu-latest`): installs `ml-service/requirements-dev.txt`, runs the pytest suite.
-- `deploy-staging` (self-hosted, runs **on the ssdnodes box itself**, `needs: [test-backend, test-ml-service]`, only on `push` to `dev`, tagged with a GitHub `environment: staging`): builds and pushes both Docker images (tagged with the git SHA and `latest`) to the local registry (`localhost:15000`), then `kubectl apply -f infra/k8s/` followed by `kubectl set image` on the backend and ml-service Deployments and `kubectl rollout status` to confirm the rollout actually succeeded.
+- `test-frontend` (GitHub-hosted `ubuntu-latest`, Phase 8): `npm ci && npm run lint && npm run build` in `frontend/`.
+- `deploy-staging` (self-hosted, runs **on the ssdnodes box itself**, `needs: [test-backend, test-ml-service, test-frontend]`, only on `push` to `dev`, tagged with a GitHub `environment: staging`): builds and pushes all three Docker images (tagged with the git SHA and `latest`) to the local registry (`localhost:15000`), then `kubectl apply -f infra/k8s/` followed by `kubectl set image` on the backend, ml-service, and frontend Deployments and `kubectl rollout status` on each to confirm the rollout actually succeeded.
 
 **Every merge to `dev` deploys straight to staging** — that's the entire deploy story right now, no separate approval step. "Staging" here names the single environment described in `docs/kubernetes.md` (the `invoice-financing` namespace on the one k3s node); see the decisions log for why it isn't split into staging + production yet. Links: `PROJECT.md`'s "Deployed instance" section.
 

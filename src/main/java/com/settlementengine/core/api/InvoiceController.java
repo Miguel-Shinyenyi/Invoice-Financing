@@ -20,7 +20,10 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import com.settlementengine.core.invoicing.InvoiceStatus;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -31,6 +34,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -100,6 +104,24 @@ public class InvoiceController {
         Invoice invoice = invoiceRepository.findById(id).orElseThrow(() -> new InvoiceNotFoundException(id));
         auditLogService.record(claims.userId(), "FINANCE_INVOICE", "invoices", id, AuditOutcome.SUCCESS);
         return InvoiceResponse.from(invoice, advance);
+    }
+
+    @GetMapping
+    @Operation(summary = "List invoices",
+            description = "Paginated, optionally filtered by status. READ_ONLY users only see invoices for a "
+                    + "business account they own.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Page of invoices"),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid access token", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public Page<InvoiceSummaryResponse> list(
+            @Parameter(description = "Optional status filter, e.g. ISSUED") @RequestParam(required = false) InvoiceStatus status,
+            Pageable pageable,
+            @AuthenticationPrincipal AccessTokenClaims claims) {
+        UUID ownerFilter = "READ_ONLY".equals(claims.role()) ? claims.ownerId() : null;
+        Page<Invoice> page = invoiceRepository.findVisible(ownerFilter, status, pageable);
+        auditLogService.record(claims.userId(), "LIST_INVOICES", "invoices", null, AuditOutcome.SUCCESS);
+        return page.map(InvoiceSummaryResponse::from);
     }
 
     @GetMapping("/{id}")

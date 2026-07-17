@@ -10,9 +10,10 @@ Built (Phase 6, extended in Phase 7 with the observability stack — see `docs/o
 
 - `postgres`, `kafka`, `minio`: each a single-replica `Deployment` (strategy `Recreate`, since each mounts a `ReadWriteOnce` PVC on the `local-path` storage class k3s ships with) + a `PersistentVolumeClaim` + a `ClusterIP` Service. None are exposed outside the cluster.
 - `fraud-detection-ml`: single-replica `Deployment` + `ClusterIP` Service, internal only — called by the backend, never reached from outside.
-- `backend`: single-replica `Deployment` + `ClusterIP` Service + `Ingress` (Traefik, k3s's bundled ingress controller) + a leaf TLS `Certificate` (see below). This is the only component reachable from outside the cluster.
+- `backend`: single-replica `Deployment` + `ClusterIP` Service + `Ingress` (Traefik, k3s's bundled ingress controller) + a leaf TLS `Certificate` (see below). Reachable from outside the cluster at `/accounts`, `/auth`, `/invoices`, `/reconciliation`, `/settlements`, `/v3/api-docs`, `/swagger-ui`, `/webjars`.
+- `frontend` (Phase 8): single-replica `Deployment` + `ClusterIP` Service + `Ingress` on the `/app` path prefix, reusing the backend's TLS secret (`infra/k8s/14-frontend.yaml`) — see `docs/frontend.md`'s decisions log for why it needs its own path prefix instead of `/`.
 - Config/secrets: a `ConfigMap` (`backend-config`) for the one non-sensitive value (`INVOICE_PLATFORM_ACCOUNT_ID`, just a `ledger_accounts.id`), and three `Secret`s (`postgres-credentials`, `backend-secrets`, `minio-credentials`) created directly on the server with randomly-generated values — never committed to git, never round-tripped through any chat/tooling transcript.
-- All manifests live in `infra/k8s/`, applied in filename order (`00-namespace.yaml` through `07-backend-config.yaml`).
+- All manifests live in `infra/k8s/`, applied in filename order (`00-namespace.yaml` through `14-frontend.yaml`).
 
 Resource requests/limits are set on every Deployment (the box has 8 vCPU / 31GB RAM, but requests/limits are good practice regardless, and matter more here since the box is shared with other tenants — see `docs/server-setup.md`).
 
@@ -35,7 +36,6 @@ This server already runs other tenants' workloads (see `docs/server-setup.md`), 
 ### Not built
 
 - Horizontal Pod Autoscaler: no traffic pattern yet to autoscale against on a single-node cluster; revisit if this ever needs more than one node.
-- Frontend Deployment/Service: Phase 8, not built yet.
 - Helm charts / Kustomize overlays: plain manifests are enough for one environment; revisit if a second environment (e.g. a real staging split) is ever needed.
 
 ## Decisions log
@@ -50,6 +50,8 @@ This server already runs other tenants' workloads (see `docs/server-setup.md`), 
 | 2026-07-17 | Traefik `TLSStore` with a default certificate, instead of relying on Ingress `tls.hosts` | Ingress host-based SNI matching only works for real hostnames; without one, Traefik silently falls back to its own self-signed cert. A default `TLSStore` cert applies regardless of SNI, which is what a bare-IP deployment actually needs |
 | 2026-07-17 | Kafka's `KAFKA_CONTROLLER_QUORUM_VOTERS` set to `1@localhost:9093`, not the Kubernetes Service DNS name | Found via crash-looping on first deploy ("channel manager timed out before sending the request" during controller registration): routing a single pod's self-registration with itself through the Service (ClusterIP -> kube-proxy iptables -> CoreDNS) added indirection a same-pod handshake doesn't need, and was unreliable enough on this shared/contended host to intermittently miss Kafka's internal registration timeout. `localhost` removed the indirection entirely and has been stable since |
 | 2026-07-17 | `CLUSTER_ID` set explicitly on the Kafka container (both here and in `infra/docker-compose.yml`) | The official `apache/kafka` image silently skips storage formatting without it, failing later with a cryptic "No readable meta.properties files found." Local dev never hit this because that container has no declared volume and tends to get reused rather than freshly recreated |
+| 2026-07-17 | Frontend `Ingress` routes `/app` to the frontend Service instead of sharing the backend's `Ingress` or claiming `/` | The backend `Ingress` already owns `/accounts`, `/auth`, `/invoices`, `/reconciliation`, `/settlements` as explicit prefixes on the same shared TLS NodePort, and the dashboard's own pages live at those same paths — a `/` catch-all on a second Ingress would still lose to those more-specific backend prefixes for every path that matters. `/app` sidesteps the collision entirely; the frontend's `next.config.ts` sets a matching `basePath` |
+| 2026-07-17 | Frontend `Ingress` reuses `backend-tls-secret` rather than getting its own `Certificate` | Same bare IP, same NodePort — a second cert for the same SAN would be redundant |
 
 ## Open questions
 

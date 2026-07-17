@@ -154,6 +154,7 @@ Runs on a self-hosted bare-metal server (k3s), not AWS. **Every merge to `dev` d
 |---------|-----|-------|
 | Backend API | `https://107.155.122.29:30443` | Self-signed CA (see `docs/kubernetes.md`'s TLS section) — `curl -k` or trust the CA cert pulled from the `invoice-financing-ca-secret` Secret |
 | Swagger UI | `https://107.155.122.29:30443/swagger-ui/index.html` | Same cert as above |
+| Frontend (admin dashboard) | `https://107.155.122.29:30443/app` | Same cert/NodePort as the backend, served under the `/app` path prefix — see `docs/frontend.md`'s decisions log for why |
 | Grafana | `http://107.155.122.29:30030` | Plain HTTP, no Ingress/TLS. **Default `admin`/`admin` login, not yet changed** — see `docs/observability.md`'s open questions |
 | Prometheus | `http://107.155.122.29:30090` | Plain HTTP |
 | Alertmanager | `http://107.155.122.29:30093` | Plain HTTP |
@@ -174,7 +175,7 @@ None of these except the backend API go through Traefik/cert-manager — the obs
 8. Frontend (Next.js dashboard)
 9. Load and correctness testing, including chaos testing for network failure and duplicate delivery scenarios
 
-Current phase: **Phase 1 through Phase 7, done — metrics/logs/traces/alerts (Prometheus, Grafana, Loki, Jaeger, self-hosted) all deployed and verified end to end on the k3s cluster, see `docs/observability.md`. Phases 8-9 not yet started.**
+Current phase: **Phase 1 through Phase 7 deployed and verified on staging. Phase 8 (Next.js admin dashboard — settlements, invoices, accounts, reconciliation, see `docs/frontend.md`) built, tested, and merged to `dev` locally; not yet pushed to staging — see the Status log below for the push/verify step once it happens. Phase 9 not yet started.**
 
 ## Repo structure decision
 
@@ -254,6 +255,11 @@ Update this section every time a phase starts or finishes. Keep entries short.
 | 2026-07-17 | Phase 7 | Done | Grafana deployed with Prometheus/Loki/Postgres datasources (the fraud-score dashboard queries `fraud_assessments` directly) and hand-written dashboards; full stack manually verified end to end against the live deployment |
 | 2026-07-17 | Phase 7 | Fixed | Jaeger 2.x isn't published to Docker Hub yet (`ImagePullBackOff` on `jaegertracing/all-in-one:2.19.0`) — switched to `1.72.0`. Separately, both OTel SDKs needed `OTEL_EXPORTER_OTLP_PROTOCOL=grpc` set explicitly, since the default (`http/protobuf`, port 4318) doesn't match Jaeger's gRPC-only port 4317 |
 | 2026-07-17 | Phase 7 | Fixed | Promtail shipped zero logs despite correct RBAC and correct file paths — two separate bugs: log files are root-owned 640 and Promtail doesn't run as root by default (fixed with `runAsUser: 0`), and Promtail's Kubernetes pod discovery silently scopes itself to a `spec.nodeName` field selector built from `HOSTNAME`, which defaults to the pod's own name inside a container, not the actual node name (fixed via the Downward API) |
+| 2026-07-17 | Phase 8 | Done | Backend: three new list endpoints (`GET /settlements`, `GET /accounts/{id}/settlements`, `GET /invoices`), TDD, paginated via Spring Data `Page`/`Pageable`, row-level filtered for `READ_ONLY` via a nullable-`:ownerId`-parameter JPQL pattern — see `backend.md`/`security.md` |
+| 2026-07-17 | Phase 8 | Done | Frontend: Next.js 16 admin dashboard (`frontend/`) — login, settlements list/detail, account detail with settlement history, invoices list/detail with a finance action, reconciliation mismatches list with resolve/trigger-run actions. Auth via an httpOnly/secure cookie set by a Route Handler proxy, no global client-state library. Full detail in `docs/frontend.md` |
+| 2026-07-17 | Phase 8 | Done | Deployment: `frontend/Dockerfile` (multi-stage, Next.js `output: "standalone"`), `infra/k8s/14-frontend.yaml` (Deployment/Service/Ingress on the `/app` path prefix, reusing the backend's TLS secret), `.github/workflows/ci.yml` extended with a `test-frontend` job and frontend build/push/deploy steps in `deploy-staging` |
+| 2026-07-17 | Phase 8 | Fixed | Next.js 16 renamed the `middleware.ts` file convention to `proxy.ts` (confirmed via `node_modules/next/dist/docs/` and the official codemod) — renamed before it shipped, not caught after the fact |
+| 2026-07-17 | Phase 8 | Fixed | The dashboard's own pages (`/settlements`, `/invoices`, `/reconciliation`, `/accounts/[id]`) would have collided with the backend `Ingress`'s identical path prefixes on the same bare-IP TLS NodePort — caught before deploying by re-reading `infra/k8s/06-backend.yaml`, not after a broken deploy. Fixed with a `/app` `basePath`, which in turn required manually prefixing every client-side `fetch()` call and `proxy.ts`'s `NextResponse.redirect(new URL(...))` targets, since Next only auto-applies `basePath` to `next/link`/`next/router` — confirmed the gap empirically (`curl` against a local `next start`) before relying on it |
 
 ## Rules for working on this project
 

@@ -29,11 +29,24 @@ jobs:
           pip install -r requirements-dev.txt
           python -m pytest
 
+  test-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - working-directory: frontend
+        run: |
+          npm ci
+          npm run lint
+          npm run build
+
   # Every merge to dev deploys straight to staging (the single environment described in
   # docs/cicd.md -- there's no separate production yet, see that doc's decisions log).
   deploy-staging:
     name: Deploy to staging
-    needs: [test-backend, test-ml-service]
+    needs: [test-backend, test-ml-service, test-frontend]
     if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
     runs-on: self-hosted
     environment:
@@ -56,11 +69,20 @@ jobs:
           sudo docker tag localhost:15000/fraud-detection-ml:${{ github.sha }} localhost:15000/fraud-detection-ml:latest
           sudo docker push localhost:15000/fraud-detection-ml:${{ github.sha }}
           sudo docker push localhost:15000/fraud-detection-ml:latest
+      - name: Build and push frontend image
+        working-directory: frontend
+        run: |
+          sudo docker build -t localhost:15000/frontend:${{ github.sha }} .
+          sudo docker tag localhost:15000/frontend:${{ github.sha }} localhost:15000/frontend:latest
+          sudo docker push localhost:15000/frontend:${{ github.sha }}
+          sudo docker push localhost:15000/frontend:latest
       - name: Deploy to k3s
         run: |
           export KUBECONFIG=$HOME/.kube/config
           kubectl apply -f infra/k8s/
           kubectl set image deployment/backend backend=localhost:15000/settlement-engine:${{ github.sha }} -n invoice-financing
           kubectl set image deployment/fraud-detection-ml fraud-detection-ml=localhost:15000/fraud-detection-ml:${{ github.sha }} -n invoice-financing
+          kubectl set image deployment/frontend frontend=localhost:15000/frontend:${{ github.sha }} -n invoice-financing
           kubectl rollout status deployment/backend -n invoice-financing --timeout=180s
           kubectl rollout status deployment/fraud-detection-ml -n invoice-financing --timeout=120s
+          kubectl rollout status deployment/frontend -n invoice-financing --timeout=120s
