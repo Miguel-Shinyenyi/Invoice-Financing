@@ -1,0 +1,60 @@
+name: CI/CD
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  test-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - run: ./mvnw -B test
+
+  test-ml-service:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - working-directory: ml-service
+        run: |
+          pip install -r requirements-dev.txt
+          python -m pytest test_main.py
+
+  deploy:
+    needs: [test-backend, test-ml-service]
+    if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and push backend image
+        # sudo, not a docker-group membership for the runner user: keeps this the *only*
+        # place that needs elevated privilege rather than a standing group grant.
+        run: |
+          sudo docker build -t localhost:15000/settlement-engine:${{ github.sha }} .
+          sudo docker tag localhost:15000/settlement-engine:${{ github.sha }} localhost:15000/settlement-engine:latest
+          sudo docker push localhost:15000/settlement-engine:${{ github.sha }}
+          sudo docker push localhost:15000/settlement-engine:latest
+      - name: Build and push ml-service image
+        working-directory: ml-service
+        run: |
+          sudo docker build -t localhost:15000/fraud-detection-ml:${{ github.sha }} .
+          sudo docker tag localhost:15000/fraud-detection-ml:${{ github.sha }} localhost:15000/fraud-detection-ml:latest
+          sudo docker push localhost:15000/fraud-detection-ml:${{ github.sha }}
+          sudo docker push localhost:15000/fraud-detection-ml:latest
+      - name: Deploy to k3s
+        run: |
+          export KUBECONFIG=$HOME/.kube/config
+          kubectl apply -f infra/k8s/
+          kubectl set image deployment/backend backend=localhost:15000/settlement-engine:${{ github.sha }} -n invoice-financing
+          kubectl set image deployment/fraud-detection-ml fraud-detection-ml=localhost:15000/fraud-detection-ml:${{ github.sha }} -n invoice-financing
+          kubectl rollout status deployment/backend -n invoice-financing --timeout=180s
+          kubectl rollout status deployment/fraud-detection-ml -n invoice-financing --timeout=120s

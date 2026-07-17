@@ -1,0 +1,10 @@
+# Not sensitive -- just the ledger_accounts.id that invoice-financing disburses from and
+# collects repayments into. Must match the row seeded into Postgres at deploy time
+# (see docs/server-setup.md's deploy runbook).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: invoice-financing
+data:
+  INVOICE_PLATFORM_ACCOUNT_ID: "c3a971b1-dce2-44b2-9af1-46c1007911ea"

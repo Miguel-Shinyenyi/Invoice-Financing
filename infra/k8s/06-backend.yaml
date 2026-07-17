@@ -1,0 +1,133 @@
+# Expects two Secrets created directly on the server (see docs/server-setup.md):
+#   - postgres-credentials (shared with 02-postgres.yaml): POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
+#   - backend-secrets: JWT_SECRET
+# INVOICE_PLATFORM_ACCOUNT_ID isn't sensitive (just a ledger_accounts.id) so it lives in a
+# ConfigMap instead, applied separately once the platform account is seeded.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: invoice-financing
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: localhost:15000/settlement-engine:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_DB
+            - name: SETTLEMENT_DB_URL
+              value: jdbc:postgresql://postgres:5432/$(DB_NAME)
+            - name: SETTLEMENT_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_USER
+            - name: SETTLEMENT_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_PASSWORD
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: kafka:9092
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: JWT_SECRET
+            - name: FRAUD_DETECTION_BASE_URL
+              value: http://fraud-detection-ml:8000
+          envFrom:
+            - configMapRef:
+                name: backend-config
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /v3/api-docs
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: invoice-financing
+spec:
+  selector:
+    app: backend
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: backend-tls
+  namespace: invoice-financing
+spec:
+  secretName: backend-tls-secret
+  duration: 2160h # 90 days
+  renewBefore: 360h # 15 days
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  ipAddresses:
+    - "107.155.122.29"
+  issuerRef:
+    name: invoice-financing-ca-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io
+---
+# There's no hostname to SNI-match against (bare-IP access, see docs/server-setup.md) --
+# Ingress's tls.hosts is meant for real hostnames, so Traefik would otherwise fall back to its
+# own "TRAEFIK DEFAULT CERT" self-signed cert instead of the one cert-manager issued above.
+# A TLSStore names "default" makes this the fallback cert for every TLS connection Traefik
+# terminates, regardless of SNI.
+apiVersion: traefik.io/v1alpha1
+kind: TLSStore
+metadata:
+  name: default
+  namespace: invoice-financing
+spec:
+  defaultCertificate:
+    secretName: backend-tls-secret
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: backend
+  namespace: invoice-financing
+spec:
+  ingressClassName: traefik
+  tls:
+    - secretName: backend-tls-secret
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8080
