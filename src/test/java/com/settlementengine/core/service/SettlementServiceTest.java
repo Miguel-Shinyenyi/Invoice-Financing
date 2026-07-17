@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import java.math.BigDecimal;
@@ -120,6 +121,72 @@ class SettlementServiceTest {
 
         assertThatThrownBy(() -> settlementService.createSettlement(idempotencyKey, command))
                 .isInstanceOf(IdempotencyKeyReusedException.class);
+    }
+
+    @Test
+    void gatewayThrowingResolvesSettlementToUnknownInsteadOfLeavingItStuckPending() {
+        when(settlementTransactions.findExisting(idempotencyKey)).thenReturn(Optional.empty());
+        SettlementExecutionRequest executionRequest = new SettlementExecutionRequest(
+                UUID.randomUUID(), command.sourceAccountId(), command.destinationAccountId(), command.amount(), command.currency());
+        when(settlementTransactions.createPendingSettlement(any(), any(), any())).thenReturn(executionRequest);
+        when(externalSettlementGateway.execute(executionRequest))
+                .thenThrow(new RuntimeException("connection timed out"));
+
+        GatewayResult unknownResult = new GatewayResult(SettlementOutcome.UNKNOWN, null);
+        SettlementResult finalResult = new SettlementResult(executionRequest.settlementId(), command.sourceAccountId(),
+                command.destinationAccountId(), command.amount(), command.currency(), SettlementStatus.UNKNOWN,
+                null, Instant.now(), Instant.now());
+        when(settlementTransactions.finalizeSettlement(executionRequest.settlementId(), unknownResult))
+                .thenReturn(finalResult);
+
+        SettlementResult result = settlementService.createSettlement(idempotencyKey, command);
+
+        assertThat(result.status()).isEqualTo(SettlementStatus.UNKNOWN);
+        verify(settlementTransactions).finalizeSettlement(executionRequest.settlementId(), unknownResult);
+    }
+
+    @Test
+    void finalizeExhaustingItsRetryBudgetFallsBackToMarkingTheSettlementUnknown() {
+        when(settlementTransactions.findExisting(idempotencyKey)).thenReturn(Optional.empty());
+        SettlementExecutionRequest executionRequest = new SettlementExecutionRequest(
+                UUID.randomUUID(), command.sourceAccountId(), command.destinationAccountId(), command.amount(), command.currency());
+        when(settlementTransactions.createPendingSettlement(any(), any(), any())).thenReturn(executionRequest);
+        GatewayResult confirmedResult = new GatewayResult(SettlementOutcome.CONFIRMED, "MOCK-ref");
+        when(externalSettlementGateway.execute(executionRequest)).thenReturn(confirmedResult);
+
+        // Sustained deadlock contention (found by the Phase 9 load test) exhausts every attempt
+        // to persist the real CONFIRMED outcome.
+        when(settlementTransactions.finalizeSettlement(executionRequest.settlementId(), confirmedResult))
+                .thenThrow(new CannotAcquireLockException("deadlock"), new CannotAcquireLockException("deadlock"),
+                        new CannotAcquireLockException("deadlock"), new CannotAcquireLockException("deadlock"),
+                        new CannotAcquireLockException("deadlock"));
+
+        GatewayResult unknownResult = new GatewayResult(SettlementOutcome.UNKNOWN, null);
+        SettlementResult finalResult = new SettlementResult(executionRequest.settlementId(), command.sourceAccountId(),
+                command.destinationAccountId(), command.amount(), command.currency(), SettlementStatus.UNKNOWN,
+                null, Instant.now(), Instant.now());
+        when(settlementTransactions.finalizeSettlement(executionRequest.settlementId(), unknownResult))
+                .thenReturn(finalResult);
+
+        SettlementResult result = settlementService.createSettlement(idempotencyKey, command);
+
+        assertThat(result.status()).isEqualTo(SettlementStatus.UNKNOWN);
+    }
+
+    @Test
+    void finalizeExhaustingBothRetryBudgetsStillThrowsRatherThanSilentlyLosingTheSettlement() {
+        when(settlementTransactions.findExisting(idempotencyKey)).thenReturn(Optional.empty());
+        SettlementExecutionRequest executionRequest = new SettlementExecutionRequest(
+                UUID.randomUUID(), command.sourceAccountId(), command.destinationAccountId(), command.amount(), command.currency());
+        when(settlementTransactions.createPendingSettlement(any(), any(), any())).thenReturn(executionRequest);
+        GatewayResult confirmedResult = new GatewayResult(SettlementOutcome.CONFIRMED, "MOCK-ref");
+        when(externalSettlementGateway.execute(executionRequest)).thenReturn(confirmedResult);
+
+        CannotAcquireLockException persistentDeadlock = new CannotAcquireLockException("deadlock");
+        when(settlementTransactions.finalizeSettlement(any(), any())).thenThrow(persistentDeadlock);
+
+        assertThatThrownBy(() -> settlementService.createSettlement(idempotencyKey, command))
+                .isSameAs(persistentDeadlock);
     }
 
     @Test
