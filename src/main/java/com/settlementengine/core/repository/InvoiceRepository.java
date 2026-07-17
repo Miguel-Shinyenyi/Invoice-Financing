@@ -3,6 +3,8 @@ package com.settlementengine.core.repository;
 import com.settlementengine.core.invoicing.Invoice;
 import com.settlementengine.core.invoicing.InvoiceStatus;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -30,4 +32,13 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
     long countByCustomerReferenceAndBusinessAccountIdNot(String customerReference, UUID businessAccountId);
 
     long countByBusinessAccountIdAndStatusIn(UUID businessAccountId, List<InvoiceStatus> statuses);
+
+    /**
+     * ownerId null (ADMIN/SUPPORT) returns every invoice; non-null (READ_ONLY) restricts to
+     * invoices whose business account that owner owns.
+     */
+    @Query("select i from Invoice i where "
+            + "(:status is null or i.status = :status) and "
+            + "(:ownerId is null or i.businessAccountId in (select a.id from LedgerAccount a where a.ownerId = :ownerId))")
+    Page<Invoice> findVisible(@Param("ownerId") UUID ownerId, @Param("status") InvoiceStatus status, Pageable pageable);
 }

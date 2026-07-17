@@ -4,6 +4,8 @@ import com.settlementengine.core.domain.AuditOutcome;
 import com.settlementengine.core.domain.LedgerAccount;
 import com.settlementengine.core.domain.Settlement;
 import com.settlementengine.core.domain.SettlementNotFoundException;
+import com.settlementengine.core.readmodel.SettlementReadModel;
+import com.settlementengine.core.readmodel.SettlementReadModelRepository;
 import com.settlementengine.core.repository.LedgerAccountRepository;
 import com.settlementengine.core.repository.SettlementRepository;
 import com.settlementengine.core.security.AccessTokenClaims;
@@ -20,6 +22,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -30,6 +34,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -43,15 +48,19 @@ public class SettlementController {
     private final SettlementService settlementService;
     private final SettlementRepository settlementRepository;
     private final LedgerAccountRepository ledgerAccountRepository;
+    private final SettlementReadModelRepository settlementReadModelRepository;
     private final RowLevelAccessGuard rowLevelAccessGuard;
     private final AuditLogService auditLogService;
 
     public SettlementController(SettlementService settlementService, SettlementRepository settlementRepository,
-                                 LedgerAccountRepository ledgerAccountRepository, RowLevelAccessGuard rowLevelAccessGuard,
+                                 LedgerAccountRepository ledgerAccountRepository,
+                                 SettlementReadModelRepository settlementReadModelRepository,
+                                 RowLevelAccessGuard rowLevelAccessGuard,
                                  AuditLogService auditLogService) {
         this.settlementService = settlementService;
         this.settlementRepository = settlementRepository;
         this.ledgerAccountRepository = ledgerAccountRepository;
+        this.settlementReadModelRepository = settlementReadModelRepository;
         this.rowLevelAccessGuard = rowLevelAccessGuard;
         this.auditLogService = auditLogService;
     }
@@ -82,6 +91,24 @@ public class SettlementController {
         SettlementResult result = settlementService.createSettlement(idempotencyKey, command);
         auditLogService.record(claims.userId(), "CREATE_SETTLEMENT", "settlements", result.settlementId(), AuditOutcome.SUCCESS);
         return SettlementResponse.from(result);
+    }
+
+    @GetMapping
+    @Operation(summary = "List settlements",
+            description = "Paginated, optionally filtered by status. Reads from the CQRS read model, not the "
+                    + "write-side settlements table. READ_ONLY users only see settlements touching an account they own.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Page of settlements"),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid access token", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public Page<SettlementSummaryResponse> list(
+            @Parameter(description = "Optional status filter, e.g. CONFIRMED") @RequestParam(required = false) String status,
+            Pageable pageable,
+            @AuthenticationPrincipal AccessTokenClaims claims) {
+        UUID ownerFilter = "READ_ONLY".equals(claims.role()) ? claims.ownerId() : null;
+        Page<SettlementReadModel> page = settlementReadModelRepository.findVisible(ownerFilter, status, pageable);
+        auditLogService.record(claims.userId(), "LIST_SETTLEMENTS", "settlement_read_model", null, AuditOutcome.SUCCESS);
+        return page.map(SettlementSummaryResponse::from);
     }
 
     @GetMapping("/{id}")

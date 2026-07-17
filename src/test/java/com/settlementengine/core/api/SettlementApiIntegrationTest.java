@@ -3,6 +3,8 @@ package com.settlementengine.core.api;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.settlementengine.core.AbstractIntegrationTest;
 import com.settlementengine.core.domain.LedgerAccount;
+import com.settlementengine.core.readmodel.SettlementReadModel;
+import com.settlementengine.core.readmodel.SettlementReadModelRepository;
 import com.settlementengine.core.repository.LedgerAccountRepository;
 import com.settlementengine.core.security.JwtService;
 import org.junit.jupiter.api.Test;
@@ -27,6 +29,8 @@ class SettlementApiIntegrationTest extends AbstractIntegrationTest {
     private MockMvc mockMvc;
     @Autowired
     private LedgerAccountRepository ledgerAccountRepository;
+    @Autowired
+    private SettlementReadModelRepository settlementReadModelRepository;
     @Autowired
     private ObjectMapper objectMapper;
     @Autowired
@@ -177,6 +181,78 @@ class SettlementApiIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(get("/accounts/{id}", otherAccount.getId())
                         .header(HttpHeaders.AUTHORIZATION, readOnly))
+                .andExpect(status().isForbidden());
+    }
+
+    private SettlementReadModel readModelRow(UUID sourceId, UUID destinationId, String status) {
+        return settlementReadModelRepository.save(new SettlementReadModel(
+                UUID.randomUUID(), sourceId, destinationId, new BigDecimal("10.00"), "USD", status, java.time.Instant.now()));
+    }
+
+    @Test
+    void listSettlementsAsAdminReturnsEveryRowPaginated() throws Exception {
+        LedgerAccount a = createAccount("0.00", UUID.randomUUID());
+        LedgerAccount b = createAccount("0.00", UUID.randomUUID());
+        readModelRow(a.getId(), b.getId(), "CONFIRMED");
+        readModelRow(b.getId(), a.getId(), "FAILED");
+
+        mockMvc.perform(get("/settlements").header(HttpHeaders.AUTHORIZATION, adminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.page.totalElements").isNumber());
+    }
+
+    @Test
+    void listSettlementsAsReadOnlyOnlyReturnsRowsTheyOwn() throws Exception {
+        UUID targetOwner = UUID.randomUUID();
+        LedgerAccount owned = createAccount("0.00", targetOwner);
+        LedgerAccount other = createAccount("0.00", UUID.randomUUID());
+        SettlementReadModel visible = readModelRow(owned.getId(), other.getId(), "CONFIRMED");
+        readModelRow(other.getId(), UUID.randomUUID(), "CONFIRMED");
+
+        mockMvc.perform(get("/settlements").header(HttpHeaders.AUTHORIZATION, bearer("READ_ONLY", targetOwner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[*].settlementId", org.hamcrest.Matchers.hasItem(visible.getSettlementId().toString())))
+                .andExpect(jsonPath("$.content.length()").value(1));
+    }
+
+    @Test
+    void listSettlementsFiltersByStatus() throws Exception {
+        LedgerAccount a = createAccount("0.00", UUID.randomUUID());
+        LedgerAccount b = createAccount("0.00", UUID.randomUUID());
+        SettlementReadModel confirmed = readModelRow(a.getId(), b.getId(), "CONFIRMED");
+        readModelRow(a.getId(), b.getId(), "FAILED");
+
+        mockMvc.perform(get("/settlements").queryParam("status", "CONFIRMED")
+                        .header(HttpHeaders.AUTHORIZATION, adminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[*].settlementId", org.hamcrest.Matchers.hasItem(confirmed.getSettlementId().toString())))
+                .andExpect(jsonPath("$.content[*].status", org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.is("CONFIRMED"))));
+    }
+
+    @Test
+    void accountSettlementHistoryReturnsRowsTouchingThatAccountEitherSide() throws Exception {
+        LedgerAccount target = createAccount("0.00", UUID.randomUUID());
+        LedgerAccount other = createAccount("0.00", UUID.randomUUID());
+        LedgerAccount unrelatedA = createAccount("0.00", UUID.randomUUID());
+        LedgerAccount unrelatedB = createAccount("0.00", UUID.randomUUID());
+        SettlementReadModel asSource = readModelRow(target.getId(), other.getId(), "CONFIRMED");
+        SettlementReadModel asDestination = readModelRow(other.getId(), target.getId(), "CONFIRMED");
+        readModelRow(unrelatedA.getId(), unrelatedB.getId(), "CONFIRMED");
+
+        mockMvc.perform(get("/accounts/{id}/settlements", target.getId())
+                        .header(HttpHeaders.AUTHORIZATION, adminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[*].settlementId", org.hamcrest.Matchers.containsInAnyOrder(
+                        asSource.getSettlementId().toString(), asDestination.getSettlementId().toString())));
+    }
+
+    @Test
+    void accountSettlementHistoryDeniedForReadOnlyUserWhoDoesNotOwnTheAccount() throws Exception {
+        LedgerAccount target = createAccount("0.00", UUID.randomUUID());
+
+        mockMvc.perform(get("/accounts/{id}/settlements", target.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer("READ_ONLY", UUID.randomUUID())))
                 .andExpect(status().isForbidden());
     }
 }

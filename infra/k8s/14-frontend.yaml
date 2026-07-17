@@ -1,0 +1,74 @@
+# Shares the backend's TLS cert/TLSStore (06-backend.yaml) -- same bare IP, same TLS NodePort
+# 30443, no separate hostname to justify its own Certificate. Served under the /app path prefix
+# (see frontend/next.config.ts's basePath) since the backend Ingress already owns /accounts,
+# /auth, /invoices, /reconciliation, /settlements as top-level prefixes on this one origin.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: invoice-financing
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: localhost:15000/frontend:latest
+          ports:
+            - containerPort: 3000
+          env:
+            # In-cluster Service DNS name -- the frontend's Server Components call the backend
+            # directly, never through the public Ingress.
+            - name: BACKEND_URL
+              value: http://backend:8080
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /app/login
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: invoice-financing
+spec:
+  selector:
+    app: frontend
+  ports:
+    - port: 3000
+      targetPort: 3000
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: frontend
+  namespace: invoice-financing
+spec:
+  ingressClassName: traefik
+  tls:
+    - secretName: backend-tls-secret
+  rules:
+    - http:
+        paths:
+          - path: /app
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 3000
