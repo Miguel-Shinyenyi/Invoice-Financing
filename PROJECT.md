@@ -175,7 +175,7 @@ None of these except the backend API go through Traefik/cert-manager — the obs
 8. Frontend (Next.js dashboard)
 9. Load and correctness testing, including chaos testing for network failure and duplicate delivery scenarios
 
-Current phase: **Phase 1 through Phase 8 deployed and verified end-to-end on staging (Next.js admin dashboard live at `/app`, see `docs/frontend.md`). Phase 9 (load and chaos testing, see `docs/testing.md`) built, tested, and verified locally — found and fixed two real gaps in `SettlementService`'s handling of gateway failures and deadlock-retry exhaustion; not yet pushed to staging.**
+Current phase: **All 9 planned phases done, deployed, and verified end-to-end on staging.** Phase 9 (load and chaos testing, see `docs/testing.md`) found and fixed two real gaps in `SettlementService`'s handling of gateway failures and deadlock-retry exhaustion, plus a CI rollout-timeout false negative (`docs/cicd.md`). No further phases currently planned — revisit `PROJECT.md`'s Build phases list if new scope is added.
 
 ## Repo structure decision
 
