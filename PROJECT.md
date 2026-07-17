@@ -175,7 +175,7 @@ None of these except the backend API go through Traefik/cert-manager — the obs
 8. Frontend (Next.js dashboard)
 9. Load and correctness testing, including chaos testing for network failure and duplicate delivery scenarios
 
-Current phase: **Phase 1 through Phase 7 deployed and verified on staging. Phase 8 (Next.js admin dashboard — settlements, invoices, accounts, reconciliation, see `docs/frontend.md`) built, tested, and merged to `dev` locally; not yet pushed to staging — see the Status log below for the push/verify step once it happens. Phase 9 not yet started.**
+Current phase: **Phase 1 through Phase 8 deployed and verified end-to-end on staging (Next.js admin dashboard live at `/app`, see `docs/frontend.md`). Phase 9 (load and chaos testing) not yet started.**
 
 ## Repo structure decision
 
@@ -261,6 +261,7 @@ Update this section every time a phase starts or finishes. Keep entries short.
 | 2026-07-17 | Phase 8 | Fixed | Next.js 16 renamed the `middleware.ts` file convention to `proxy.ts` (confirmed via `node_modules/next/dist/docs/` and the official codemod) — renamed before it shipped, not caught after the fact |
 | 2026-07-17 | Phase 8 | Fixed | The dashboard's own pages (`/settlements`, `/invoices`, `/reconciliation`, `/accounts/[id]`) would have collided with the backend `Ingress`'s identical path prefixes on the same bare-IP TLS NodePort — caught before deploying by re-reading `infra/k8s/06-backend.yaml`, not after a broken deploy. Fixed with a `/app` `basePath`, which in turn required manually prefixing every client-side `fetch()` call and `proxy.ts`'s `NextResponse.redirect(new URL(...))` targets, since Next only auto-applies `basePath` to `next/link`/`next/router` — confirmed the gap empirically (`curl` against a local `next start`) before relying on it |
 | 2026-07-17 | CI | Fixed | `deploy-staging` never actually ran on a push to `dev` — `test-backend` failed on GitHub-hosted runners with `mvnw: ... apache-maven-3.9.9/bin/mvn: not found`. Root cause: `mvnw` was never the real Maven Wrapper; since the first Phase 1 commit it was a 4-line script hardcoding an exec path into this specific machine's local `~/.m2/wrapper/dists` cache (a workaround for "no system-wide `mvn`" that replaced the wrapper instead of just fixing `PATH`), which cannot exist on a fresh CI VM. Regenerated the real, portable, self-downloading Maven Wrapper via `mvn -N wrapper:wrapper -Dmaven=3.9.9`; verified locally (`./mvnw test`, cold cache, 194 tests pass) before pushing |
+| 2026-07-17 | Phase 8 | Done | Deployed to staging and manually verified end-to-end through the real frontend code paths (not just direct API calls): logged in as `admin1`, browsed settlements/invoices/accounts/reconciliation with live data, financed a test invoice through the actual `FinanceButton` → Route Handler → backend flow (correct 80% advance rate, 2% fee, disbursement settlement, and UI updated to reflect `FINANCED`) |
 
 ## Rules for working on this project
 
