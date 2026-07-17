@@ -83,6 +83,6 @@ jobs:
           kubectl set image deployment/backend backend=localhost:15000/settlement-engine:${{ github.sha }} -n invoice-financing
           kubectl set image deployment/fraud-detection-ml fraud-detection-ml=localhost:15000/fraud-detection-ml:${{ github.sha }} -n invoice-financing
           kubectl set image deployment/frontend frontend=localhost:15000/frontend:${{ github.sha }} -n invoice-financing
-          kubectl rollout status deployment/backend -n invoice-financing --timeout=180s
+          kubectl rollout status deployment/backend -n invoice-financing --timeout=360s
           kubectl rollout status deployment/fraud-detection-ml -n invoice-financing --timeout=120s
           kubectl rollout status deployment/frontend -n invoice-financing --timeout=120s
