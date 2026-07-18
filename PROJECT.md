@@ -162,6 +162,15 @@ Runs on a self-hosted bare-metal server (k3s), not AWS. **Every merge to `dev` d
 
 None of these except the backend API go through Traefik/cert-manager — the observability UIs are plain NodePorts (see `docs/kubernetes.md`'s decisions log for why). Keep this table accurate whenever a port or service changes — see `docs/DOCS_MAINTENANCE.md`.
 
+**Trying it out (staging):**
+
+1. Open `https://107.155.122.29:30443/app` (self-signed CA — your browser will warn, click through it; same cert as the backend API above). It redirects to `/login`.
+2. Log in with the seeded demo account — username `admin1`, password `password123` (the same one documented under "Running the application" below; this is a demo credential seeded for this portfolio project, not a real secret).
+3. From there: browse **Settlements**, **Invoices**, and **Accounts** (all live, real data from the staging database); open an `ISSUED` invoice and click **Finance this invoice** to watch the actual idempotent settlement flow run end to end (fraud check → disbursement → ledger update); check **Reconciliation** for open mismatches or trigger a fresh run.
+4. `/app/about` is public — no login needed — and walks through how the whole project was built, phase by phase, including the real bugs hit along the way.
+
+No `READ_ONLY`-role demo account is currently seeded, so the row-level access control (a `READ_ONLY` user only ever seeing accounts/settlements they own) isn't something a visitor can click through themselves yet — see `security.md` for how it's implemented and tested.
+
 ## Build phases
 
 1. Core ledger and idempotency layer (Spring Boot, Postgres, TDD): idempotency keys, double-entry ledger, settlement state machine

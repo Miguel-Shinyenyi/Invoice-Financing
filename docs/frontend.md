@@ -6,7 +6,7 @@ Describes the Next.js admin dashboard: pages, components, and how it talks to th
 
 ## Current state
 
-Built in Phase 8. Next.js 16.2.10 (App Router), React 19.2.4, TypeScript, Tailwind CSS v4. Lives in `frontend/`.
+Built in Phase 8. Next.js 16.2.10 (App Router), React 19.2.4, TypeScript, Tailwind CSS v4. Lives in `frontend/`. To actually try the deployed dashboard (login credentials, a suggested click-through) see `PROJECT.md`'s "Trying it out (staging)" section.
 
 Pages:
 
