@@ -19,6 +19,11 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Public showcase page -- no auth either direction, unlike every other route here.
+  if (pathname === "/about") {
+    return NextResponse.next();
+  }
+
   if (!hasToken) {
     return NextResponse.redirect(new URL(`${BASE_PATH}/login`, request.url));
   }

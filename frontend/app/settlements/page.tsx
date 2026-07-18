@@ -25,20 +25,17 @@ export default async function SettlementsPage({
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-8">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-slate-900">Settlements</h1>
-        <div className="flex gap-2">
-          <Link
-            href="/settlements"
-            className={`rounded-md px-3 py-1 text-sm ${!status ? "bg-slate-900 text-white" : "bg-white text-slate-600 border border-slate-300"}`}
-          >
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-2xl font-black uppercase tracking-tight text-black">Settlements</h1>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/settlements" className={`neo-chip ${!status ? "bg-[var(--color-neo-yellow)]" : "bg-white"}`}>
             All
           </Link>
           {STATUSES.map((s) => (
             <Link
               key={s}
               href={`/settlements?status=${s}`}
-              className={`rounded-md px-3 py-1 text-sm ${status === s ? "bg-slate-900 text-white" : "bg-white text-slate-600 border border-slate-300"}`}
+              className={`neo-chip ${status === s ? "bg-[var(--color-neo-yellow)]" : "bg-white"}`}
             >
               {s}
             </Link>
@@ -46,9 +43,9 @@ export default async function SettlementsPage({
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div className="neo-card overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+          <thead className="border-b-2 border-black text-left text-xs font-black uppercase tracking-wide text-black">
             <tr>
               <th className="px-4 py-3">Settlement</th>
               <th className="px-4 py-3">Source</th>
@@ -58,36 +55,36 @@ export default async function SettlementsPage({
               <th className="px-4 py-3">Updated</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y-2 divide-black">
             {data.content.map((settlement) => (
-              <tr key={settlement.settlementId} className="hover:bg-slate-50">
+              <tr key={settlement.settlementId} className="hover:bg-yellow-50">
                 <td className="px-4 py-3">
-                  <Link href={`/settlements/${settlement.settlementId}`} className="font-mono text-xs text-blue-700 hover:underline">
+                  <Link href={`/settlements/${settlement.settlementId}`} className="font-mono text-xs font-bold text-black hover:underline">
                     {settlement.settlementId.slice(0, 8)}
                   </Link>
                 </td>
-                <td className="px-4 py-3 font-mono text-xs text-slate-600">
+                <td className="px-4 py-3 font-mono text-xs font-bold text-black">
                   <Link href={`/accounts/${settlement.sourceAccountId}`} className="hover:underline">
                     {settlement.sourceAccountId.slice(0, 8)}
                   </Link>
                 </td>
-                <td className="px-4 py-3 font-mono text-xs text-slate-600">
+                <td className="px-4 py-3 font-mono text-xs font-bold text-black">
                   <Link href={`/accounts/${settlement.destinationAccountId}`} className="hover:underline">
                     {settlement.destinationAccountId.slice(0, 8)}
                   </Link>
                 </td>
-                <td className="px-4 py-3 text-slate-900">
+                <td className="px-4 py-3 font-bold text-black">
                   {settlement.amount} {settlement.currency}
                 </td>
                 <td className="px-4 py-3">
                   <StatusBadge status={settlement.status} />
                 </td>
-                <td className="px-4 py-3 text-slate-500">{new Date(settlement.updatedAt).toLocaleString()}</td>
+                <td className="px-4 py-3 font-medium text-black">{new Date(settlement.updatedAt).toLocaleString()}</td>
               </tr>
             ))}
             {data.content.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+                <td colSpan={6} className="px-4 py-8 text-center font-bold text-black">
                   No settlements found.
                 </td>
               </tr>

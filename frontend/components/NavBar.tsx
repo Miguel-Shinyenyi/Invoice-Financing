@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BASE_PATH } from "@/lib/basePath";
 
-export function NavBar({ role }: { role: string }) {
+export function NavBar({ role }: { role: string | null }) {
   const router = useRouter();
 
   async function logout() {
@@ -14,26 +14,41 @@ export function NavBar({ role }: { role: string }) {
   }
 
   return (
-    <nav className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
+    <nav className="flex items-center justify-between border-b-2 border-black bg-white px-6 py-3">
       <div className="flex items-center gap-6">
-        <span className="font-semibold text-slate-900">Invoice Financing</span>
-        <Link href="/settlements" className="text-sm text-slate-600 hover:text-slate-900">
-          Settlements
-        </Link>
-        <Link href="/invoices" className="text-sm text-slate-600 hover:text-slate-900">
-          Invoices
-        </Link>
-        {(role === "ADMIN" || role === "SUPPORT") && (
-          <Link href="/reconciliation" className="text-sm text-slate-600 hover:text-slate-900">
-            Reconciliation
-          </Link>
+        <span className="font-black uppercase tracking-tight text-black">Invoice Financing</span>
+        {role && (
+          <>
+            <Link href="/settlements" className="neo-chip bg-white hover:bg-[var(--color-neo-yellow)]">
+              Settlements
+            </Link>
+            <Link href="/invoices" className="neo-chip bg-white hover:bg-[var(--color-neo-yellow)]">
+              Invoices
+            </Link>
+            {(role === "ADMIN" || role === "SUPPORT") && (
+              <Link href="/reconciliation" className="neo-chip bg-white hover:bg-[var(--color-neo-yellow)]">
+                Reconciliation
+              </Link>
+            )}
+          </>
         )}
+        <Link href="/about" className="neo-chip bg-white hover:bg-[var(--color-neo-pink)]">
+          Build Story
+        </Link>
       </div>
       <div className="flex items-center gap-4">
-        <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">{role}</span>
-        <button onClick={logout} className="text-sm text-slate-600 hover:text-slate-900">
-          Sign out
-        </button>
+        {role ? (
+          <>
+            <span className="neo-badge bg-[var(--color-neo-blue)] text-white">{role}</span>
+            <button onClick={logout} className="neo-btn">
+              Sign out
+            </button>
+          </>
+        ) : (
+          <Link href="/login" className="neo-btn bg-[var(--color-neo-yellow)]">
+            Log in
+          </Link>
+        )}
       </div>
     </nav>
   );

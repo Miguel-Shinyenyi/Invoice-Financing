@@ -23,21 +23,21 @@ export function Pagination({
   }
 
   return (
-    <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3">
+    <div className="flex items-center justify-between border-t-2 border-black px-4 py-3">
       <Link
         href={hrefFor(Math.max(0, page - 1))}
         aria-disabled={page === 0}
-        className={`text-sm ${page === 0 ? "pointer-events-none text-slate-300" : "text-slate-600 hover:text-slate-900"}`}
+        className={page === 0 ? "neo-btn pointer-events-none opacity-30" : "neo-btn"}
       >
         Previous
       </Link>
-      <span className="text-sm text-slate-500">
+      <span className="text-sm font-bold text-black">
         Page {page + 1} of {totalPages}
       </span>
       <Link
         href={hrefFor(Math.min(totalPages - 1, page + 1))}
         aria-disabled={page >= totalPages - 1}
-        className={`text-sm ${page >= totalPages - 1 ? "pointer-events-none text-slate-300" : "text-slate-600 hover:text-slate-900"}`}
+        className={page >= totalPages - 1 ? "neo-btn pointer-events-none opacity-30" : "neo-btn"}
       >
         Next
       </Link>

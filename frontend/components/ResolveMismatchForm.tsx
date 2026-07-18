@@ -41,16 +41,12 @@ export function ResolveMismatchForm({ mismatchId }: { mismatchId: string }) {
         value={reason}
         onChange={(e) => setReason(e.target.value)}
         placeholder="Resolution reason"
-        className="rounded-md border border-slate-300 px-2 py-1 text-sm"
+        className="neo-input text-sm"
       />
-      <button
-        onClick={resolve}
-        disabled={loading}
-        className="rounded-md bg-slate-900 px-3 py-1 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
-      >
+      <button onClick={resolve} disabled={loading} className="neo-btn bg-[var(--color-neo-green)] text-white">
         {loading ? "Resolving..." : "Resolve"}
       </button>
-      {error && <span className="text-xs text-red-600">{error}</span>}
+      {error && <span className="text-xs font-bold text-[var(--color-neo-red)]">{error}</span>}
     </div>
   );
 }

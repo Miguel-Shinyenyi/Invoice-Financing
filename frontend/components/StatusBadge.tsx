@@ -1,22 +1,22 @@
 const COLORS: Record<string, string> = {
-  CONFIRMED: "bg-green-100 text-green-800",
-  DISBURSED: "bg-green-100 text-green-800",
-  REPAID: "bg-green-100 text-green-800",
-  RESOLVED: "bg-green-100 text-green-800",
-  ALLOW: "bg-green-100 text-green-800",
-  PENDING: "bg-amber-100 text-amber-800",
-  ISSUED: "bg-amber-100 text-amber-800",
-  FINANCED: "bg-blue-100 text-blue-800",
-  OPEN: "bg-amber-100 text-amber-800",
-  UNKNOWN: "bg-amber-100 text-amber-800",
-  OVERDUE: "bg-orange-100 text-orange-800",
-  FAILED: "bg-red-100 text-red-800",
-  DEFAULTED: "bg-red-100 text-red-800",
-  BLOCK: "bg-red-100 text-red-800",
-  REVERSED: "bg-slate-200 text-slate-700",
+  CONFIRMED: "bg-[var(--color-neo-green)] text-white",
+  DISBURSED: "bg-[var(--color-neo-green)] text-white",
+  REPAID: "bg-[var(--color-neo-green)] text-white",
+  RESOLVED: "bg-[var(--color-neo-green)] text-white",
+  ALLOW: "bg-[var(--color-neo-green)] text-white",
+  PENDING: "bg-[var(--color-neo-yellow)] text-black",
+  ISSUED: "bg-[var(--color-neo-yellow)] text-black",
+  FINANCED: "bg-[var(--color-neo-blue)] text-white",
+  OPEN: "bg-[var(--color-neo-yellow)] text-black",
+  UNKNOWN: "bg-[var(--color-neo-yellow)] text-black",
+  OVERDUE: "bg-[var(--color-neo-orange)] text-black",
+  FAILED: "bg-[var(--color-neo-red)] text-white",
+  DEFAULTED: "bg-[var(--color-neo-red)] text-white",
+  BLOCK: "bg-[var(--color-neo-red)] text-white",
+  REVERSED: "bg-white text-black",
 };
 
 export function StatusBadge({ status }: { status: string }) {
-  const classes = COLORS[status] ?? "bg-slate-100 text-slate-700";
-  return <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${classes}`}>{status}</span>;
+  const classes = COLORS[status] ?? "bg-white text-black";
+  return <span className={`neo-badge ${classes}`}>{status}</span>;
 }

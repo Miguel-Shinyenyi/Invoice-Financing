@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #fdf6e9;
+  --foreground: #000000;
 }
 
 @theme inline {
@@ -10,17 +10,48 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Neo-brutalist design tokens -- flat, high-contrast, no gradients/blur. */
+  --color-neo-cream: #fdf6e9;
+  --color-neo-yellow: #ffd100;
+  --color-neo-pink: #ff3ea5;
+  --color-neo-blue: #2f6fed;
+  --color-neo-green: #00c853;
+  --color-neo-red: #ff3b30;
+  --color-neo-orange: #ff8a00;
+  --color-neo-black: #000000;
+
+  --shadow-brutal: 4px 4px 0 0 #000000;
+  --shadow-brutal-sm: 2px 2px 0 0 #000000;
+  --shadow-brutal-lg: 6px 6px 0 0 #000000;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/* Dark mode intentionally not supported -- neo-brutalism here commits to one bold,
+   flat, high-contrast look rather than adapting to viewer theme preference. */
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+}
+
+@layer components {
+  .neo-card {
+    @apply rounded-none border-2 border-black bg-white shadow-brutal;
+  }
+
+  .neo-btn {
+    @apply inline-flex items-center justify-center rounded-none border-2 border-black bg-white px-4 py-2 font-bold text-black shadow-brutal-sm transition-all hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  .neo-input {
+    @apply rounded-none border-2 border-black bg-white px-3 py-2 font-medium text-black outline-none focus:shadow-brutal-sm;
+  }
+
+  .neo-badge {
+    @apply inline-flex items-center rounded-none border-2 border-black px-2 py-0.5 text-xs font-bold uppercase tracking-wide shadow-brutal-sm;
+  }
+
+  .neo-chip {
+    @apply rounded-none border-2 border-black px-3 py-1 text-sm font-bold shadow-brutal-sm transition-all hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none;
+  }
 }

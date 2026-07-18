@@ -10,7 +10,7 @@ export default async function ReconciliationPage() {
   if (user.role !== "ADMIN" && user.role !== "SUPPORT") {
     return (
       <div className="mx-auto max-w-4xl px-6 py-8">
-        <p className="text-slate-500">You don&apos;t have access to reconciliation.</p>
+        <p className="font-bold text-black">You don&apos;t have access to reconciliation.</p>
       </div>
     );
   }
@@ -19,14 +19,14 @@ export default async function ReconciliationPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-8">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-slate-900">Reconciliation</h1>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-2xl font-black uppercase tracking-tight text-black">Reconciliation</h1>
         <TriggerRunButton />
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div className="neo-card overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+          <thead className="border-b-2 border-black text-left text-xs font-black uppercase tracking-wide text-black">
             <tr>
               <th className="px-4 py-3">Settlement</th>
               <th className="px-4 py-3">Internal state</th>
@@ -36,11 +36,11 @@ export default async function ReconciliationPage() {
               <th className="px-4 py-3">Resolve</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y-2 divide-black">
             {mismatches.map((mismatch) => (
-              <tr key={mismatch.id} className="hover:bg-slate-50">
+              <tr key={mismatch.id} className="hover:bg-yellow-50">
                 <td className="px-4 py-3">
-                  <Link href={`/settlements/${mismatch.settlementId}`} className="font-mono text-xs text-blue-700 hover:underline">
+                  <Link href={`/settlements/${mismatch.settlementId}`} className="font-mono text-xs font-bold text-black hover:underline">
                     {mismatch.settlementId.slice(0, 8)}
                   </Link>
                 </td>
@@ -50,10 +50,10 @@ export default async function ReconciliationPage() {
                 <td className="px-4 py-3">
                   <StatusBadge status={mismatch.externalState ?? "UNKNOWN"} />
                 </td>
-                <td className="px-4 py-3 max-w-xs truncate text-slate-600" title={mismatch.details}>
+                <td className="max-w-xs truncate px-4 py-3 font-medium text-black" title={mismatch.details}>
                   {mismatch.details}
                 </td>
-                <td className="px-4 py-3 text-slate-500">{new Date(mismatch.createdAt).toLocaleString()}</td>
+                <td className="px-4 py-3 font-medium text-black">{new Date(mismatch.createdAt).toLocaleString()}</td>
                 <td className="px-4 py-3">
                   <ResolveMismatchForm mismatchId={mismatch.id} />
                 </td>
@@ -61,7 +61,7 @@ export default async function ReconciliationPage() {
             ))}
             {mismatches.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+                <td colSpan={6} className="px-4 py-8 text-center font-bold text-black">
                   No open mismatches.
                 </td>
               </tr>

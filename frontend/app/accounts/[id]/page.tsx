@@ -23,29 +23,29 @@ export default async function AccountDetailPage({
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-8">
-      <h1 className="mb-6 font-mono text-lg text-slate-900">{account.id}</h1>
+      <h1 className="mb-6 font-mono text-lg font-bold text-black">{account.id}</h1>
 
-      <dl className="mb-8 grid grid-cols-3 gap-4 rounded-lg border border-slate-200 bg-white p-6">
+      <dl className="neo-card mb-8 grid grid-cols-3 gap-4 p-6">
         <div>
-          <dt className="text-xs uppercase text-slate-500">Balance</dt>
-          <dd className="mt-1 text-2xl font-semibold text-slate-900">
+          <dt className="text-xs font-black uppercase tracking-wide text-black">Balance</dt>
+          <dd className="mt-1 text-2xl font-black text-black">
             {account.balance} {account.currency}
           </dd>
         </div>
         <div>
-          <dt className="text-xs uppercase text-slate-500">Owner</dt>
-          <dd className="mt-1 font-mono text-xs text-slate-600">{account.ownerId}</dd>
+          <dt className="text-xs font-black uppercase tracking-wide text-black">Owner</dt>
+          <dd className="mt-1 font-mono text-xs font-bold text-black">{account.ownerId}</dd>
         </div>
         <div>
-          <dt className="text-xs uppercase text-slate-500">Created</dt>
-          <dd className="mt-1 text-slate-900">{new Date(account.createdAt).toLocaleString()}</dd>
+          <dt className="text-xs font-black uppercase tracking-wide text-black">Created</dt>
+          <dd className="mt-1 font-medium text-black">{new Date(account.createdAt).toLocaleString()}</dd>
         </div>
       </dl>
 
-      <h2 className="mb-3 text-sm font-semibold uppercase text-slate-500">Settlement history</h2>
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <h2 className="mb-3 text-sm font-black uppercase tracking-wide text-black">Settlement history</h2>
+      <div className="neo-card overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+          <thead className="border-b-2 border-black text-left text-xs font-black uppercase tracking-wide text-black">
             <tr>
               <th className="px-4 py-3">Settlement</th>
               <th className="px-4 py-3">Direction</th>
@@ -54,29 +54,29 @@ export default async function AccountDetailPage({
               <th className="px-4 py-3">Updated</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y-2 divide-black">
             {history.content.map((settlement) => (
-              <tr key={settlement.settlementId} className="hover:bg-slate-50">
+              <tr key={settlement.settlementId} className="hover:bg-yellow-50">
                 <td className="px-4 py-3">
-                  <Link href={`/settlements/${settlement.settlementId}`} className="font-mono text-xs text-blue-700 hover:underline">
+                  <Link href={`/settlements/${settlement.settlementId}`} className="font-mono text-xs font-bold text-black hover:underline">
                     {settlement.settlementId.slice(0, 8)}
                   </Link>
                 </td>
-                <td className="px-4 py-3 text-slate-600">
+                <td className="px-4 py-3 font-bold text-black">
                   {settlement.sourceAccountId === account.id ? "Outgoing" : "Incoming"}
                 </td>
-                <td className="px-4 py-3 text-slate-900">
+                <td className="px-4 py-3 font-bold text-black">
                   {settlement.amount} {settlement.currency}
                 </td>
                 <td className="px-4 py-3">
                   <StatusBadge status={settlement.status} />
                 </td>
-                <td className="px-4 py-3 text-slate-500">{new Date(settlement.updatedAt).toLocaleString()}</td>
+                <td className="px-4 py-3 font-medium text-black">{new Date(settlement.updatedAt).toLocaleString()}</td>
               </tr>
             ))}
             {history.content.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-slate-400">
+                <td colSpan={5} className="px-4 py-8 text-center font-bold text-black">
                   No settlements yet.
                 </td>
               </tr>
