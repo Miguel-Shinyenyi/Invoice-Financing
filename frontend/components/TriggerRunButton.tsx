@@ -27,14 +27,10 @@ export function TriggerRunButton() {
 
   return (
     <div className="flex items-center gap-2">
-      <button
-        onClick={trigger}
-        disabled={loading}
-        className="rounded-md border border-slate-300 bg-white px-3 py-1 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-      >
+      <button onClick={trigger} disabled={loading} className="neo-btn">
         {loading ? "Running..." : "Trigger reconciliation run"}
       </button>
-      {error && <span className="text-xs text-red-600">{error}</span>}
+      {error && <span className="text-xs font-bold text-[var(--color-neo-red)]">{error}</span>}
     </div>
   );
 }

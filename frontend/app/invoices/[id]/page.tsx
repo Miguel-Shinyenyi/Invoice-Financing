@@ -13,78 +13,78 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-8">
-      <Link href="/invoices" className="text-sm text-slate-500 hover:underline">
+      <Link href="/invoices" className="text-sm font-bold text-black hover:underline">
         &larr; Invoices
       </Link>
-      <h1 className="mt-2 mb-6 font-mono text-lg text-slate-900">{invoice.id}</h1>
+      <h1 className="mt-2 mb-6 font-mono text-lg font-bold text-black">{invoice.id}</h1>
 
-      <dl className="grid grid-cols-2 gap-4 rounded-lg border border-slate-200 bg-white p-6">
+      <dl className="neo-card grid grid-cols-2 gap-4 p-6">
         <div>
-          <dt className="text-xs uppercase text-slate-500">Status</dt>
+          <dt className="text-xs font-black uppercase tracking-wide text-black">Status</dt>
           <dd className="mt-1">
             <StatusBadge status={invoice.status} />
           </dd>
         </div>
         <div>
-          <dt className="text-xs uppercase text-slate-500">Amount</dt>
-          <dd className="mt-1 text-slate-900">
+          <dt className="text-xs font-black uppercase tracking-wide text-black">Amount</dt>
+          <dd className="mt-1 font-bold text-black">
             {invoice.amount} {invoice.currency}
           </dd>
         </div>
         <div>
-          <dt className="text-xs uppercase text-slate-500">Customer reference</dt>
-          <dd className="mt-1 text-slate-900">{invoice.customerReference}</dd>
+          <dt className="text-xs font-black uppercase tracking-wide text-black">Customer reference</dt>
+          <dd className="mt-1 font-medium text-black">{invoice.customerReference}</dd>
         </div>
         <div>
-          <dt className="text-xs uppercase text-slate-500">Business account</dt>
+          <dt className="text-xs font-black uppercase tracking-wide text-black">Business account</dt>
           <dd className="mt-1">
-            <Link href={`/accounts/${invoice.businessAccountId}`} className="font-mono text-xs text-blue-700 hover:underline">
+            <Link href={`/accounts/${invoice.businessAccountId}`} className="font-mono text-xs font-bold text-black hover:underline">
               {invoice.businessAccountId}
             </Link>
           </dd>
         </div>
         <div>
-          <dt className="text-xs uppercase text-slate-500">Due date</dt>
-          <dd className="mt-1 text-slate-900">{new Date(invoice.dueDate).toLocaleDateString()}</dd>
+          <dt className="text-xs font-black uppercase tracking-wide text-black">Due date</dt>
+          <dd className="mt-1 font-medium text-black">{new Date(invoice.dueDate).toLocaleDateString()}</dd>
         </div>
         <div>
-          <dt className="text-xs uppercase text-slate-500">External source ref</dt>
-          <dd className="mt-1 text-slate-900">{invoice.externalSourceRef ?? "—"}</dd>
+          <dt className="text-xs font-black uppercase tracking-wide text-black">External source ref</dt>
+          <dd className="mt-1 font-medium text-black">{invoice.externalSourceRef ?? "—"}</dd>
         </div>
         <div>
-          <dt className="text-xs uppercase text-slate-500">Created</dt>
-          <dd className="mt-1 text-slate-900">{new Date(invoice.createdAt).toLocaleString()}</dd>
+          <dt className="text-xs font-black uppercase tracking-wide text-black">Created</dt>
+          <dd className="mt-1 font-medium text-black">{new Date(invoice.createdAt).toLocaleString()}</dd>
         </div>
         <div>
-          <dt className="text-xs uppercase text-slate-500">Updated</dt>
-          <dd className="mt-1 text-slate-900">{new Date(invoice.updatedAt).toLocaleString()}</dd>
+          <dt className="text-xs font-black uppercase tracking-wide text-black">Updated</dt>
+          <dd className="mt-1 font-medium text-black">{new Date(invoice.updatedAt).toLocaleString()}</dd>
         </div>
       </dl>
 
       {invoice.advance && (
         <>
-          <h2 className="mt-8 mb-3 text-sm font-semibold uppercase text-slate-500">Advance</h2>
-          <dl className="grid grid-cols-2 gap-4 rounded-lg border border-slate-200 bg-white p-6">
+          <h2 className="mt-8 mb-3 text-sm font-black uppercase tracking-wide text-black">Advance</h2>
+          <dl className="neo-card grid grid-cols-2 gap-4 p-6">
             <div>
-              <dt className="text-xs uppercase text-slate-500">Status</dt>
+              <dt className="text-xs font-black uppercase tracking-wide text-black">Status</dt>
               <dd className="mt-1">
                 <StatusBadge status={invoice.advance.status} />
               </dd>
             </div>
             <div>
-              <dt className="text-xs uppercase text-slate-500">Amount advanced</dt>
-              <dd className="mt-1 text-slate-900">{invoice.advance.amountAdvanced}</dd>
+              <dt className="text-xs font-black uppercase tracking-wide text-black">Amount advanced</dt>
+              <dd className="mt-1 font-bold text-black">{invoice.advance.amountAdvanced}</dd>
             </div>
             <div>
-              <dt className="text-xs uppercase text-slate-500">Fee</dt>
-              <dd className="mt-1 text-slate-900">{invoice.advance.fee}</dd>
+              <dt className="text-xs font-black uppercase tracking-wide text-black">Fee</dt>
+              <dd className="mt-1 font-bold text-black">{invoice.advance.fee}</dd>
             </div>
             <div>
-              <dt className="text-xs uppercase text-slate-500">Disbursed settlement</dt>
+              <dt className="text-xs font-black uppercase tracking-wide text-black">Disbursed settlement</dt>
               <dd className="mt-1">
                 <Link
                   href={`/settlements/${invoice.advance.disbursedSettlementId}`}
-                  className="font-mono text-xs text-blue-700 hover:underline"
+                  className="font-mono text-xs font-bold text-black hover:underline"
                 >
                   {invoice.advance.disbursedSettlementId}
                 </Link>
@@ -92,11 +92,11 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
             </div>
             {invoice.advance.repaidSettlementId && (
               <div>
-                <dt className="text-xs uppercase text-slate-500">Repaid settlement</dt>
+                <dt className="text-xs font-black uppercase tracking-wide text-black">Repaid settlement</dt>
                 <dd className="mt-1">
                   <Link
                     href={`/settlements/${invoice.advance.repaidSettlementId}`}
-                    className="font-mono text-xs text-blue-700 hover:underline"
+                    className="font-mono text-xs font-bold text-black hover:underline"
                   >
                     {invoice.advance.repaidSettlementId}
                   </Link>
