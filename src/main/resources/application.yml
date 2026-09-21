@@ -48,6 +48,7 @@ settlement-engine:
   reconciliation:
     grace-period-seconds: ${RECONCILIATION_GRACE_PERIOD_SECONDS:300}
     scheduled-fixed-delay-ms: ${RECONCILIATION_SCHEDULED_FIXED_DELAY_MS:60000}
+    stale-pending-grace-period-seconds: ${RECONCILIATION_STALE_PENDING_GRACE_PERIOD_SECONDS:300}
   invoice-financing:
     advance-rate-percent: ${INVOICE_ADVANCE_RATE_PERCENT:80}
     fee-rate-percent: ${INVOICE_FEE_RATE_PERCENT:2}
