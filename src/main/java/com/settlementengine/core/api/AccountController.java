@@ -4,6 +4,7 @@ import com.settlementengine.core.domain.AccountNotFoundException;
 import com.settlementengine.core.domain.AuditOutcome;
 import com.settlementengine.core.domain.LedgerAccount;
 import com.settlementengine.core.readmodel.SettlementReadModelRepository;
+import com.settlementengine.core.reconciliation.LedgerConsistencyService;
 import com.settlementengine.core.repository.LedgerAccountRepository;
 import com.settlementengine.core.security.AccessTokenClaims;
 import com.settlementengine.core.security.AuditLogService;
@@ -34,15 +35,18 @@ public class AccountController {
     private final SettlementReadModelRepository settlementReadModelRepository;
     private final RowLevelAccessGuard rowLevelAccessGuard;
     private final AuditLogService auditLogService;
+    private final LedgerConsistencyService ledgerConsistencyService;
 
     public AccountController(LedgerAccountRepository ledgerAccountRepository,
                               SettlementReadModelRepository settlementReadModelRepository,
                               RowLevelAccessGuard rowLevelAccessGuard,
-                              AuditLogService auditLogService) {
+                              AuditLogService auditLogService,
+                              LedgerConsistencyService ledgerConsistencyService) {
         this.ledgerAccountRepository = ledgerAccountRepository;
         this.settlementReadModelRepository = settlementReadModelRepository;
         this.rowLevelAccessGuard = rowLevelAccessGuard;
         this.auditLogService = auditLogService;
+        this.ledgerConsistencyService = ledgerConsistencyService;
     }
 
     @GetMapping("/{id}")
@@ -51,11 +55,15 @@ public class AccountController {
             @ApiResponse(responseCode = "200", description = "Account found"),
             @ApiResponse(responseCode = "401", description = "Missing or invalid access token", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "READ_ONLY user does not own this account", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(responseCode = "404", description = "No account with this id", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+            @ApiResponse(responseCode = "404", description = "No account with this id", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "Stored balance disagrees with the account's ledger entries; recorded as a ledger mismatch for manual review", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     public AccountResponse get(@PathVariable UUID id, @AuthenticationPrincipal AccessTokenClaims claims) {
         LedgerAccount account = ledgerAccountRepository.findById(id)
                 .orElseThrow(() -> new AccountNotFoundException(id));
+        // Before the ownership check, so a broken account is recorded and surfaced even when the
+        // caller wouldn't be allowed to see it.
+        ledgerConsistencyService.verify(account);
         try {
             rowLevelAccessGuard.requireOwnership(claims, account.getOwnerId());
         } catch (AccessDeniedException denied) {

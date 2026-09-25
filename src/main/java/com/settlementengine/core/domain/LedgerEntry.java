@@ -18,7 +18,8 @@ public class LedgerEntry {
     @Id
     private UUID id;
 
-    @Column(name = "settlement_id", nullable = false)
+    // Null only for OPENING entries (enforced by a DB check constraint, V7).
+    @Column(name = "settlement_id")
     private UUID settlementId;
 
     @Column(name = "account_id", nullable = false)
@@ -38,12 +39,27 @@ public class LedgerEntry {
     }
 
     public LedgerEntry(UUID id, UUID settlementId, UUID accountId, EntryType entryType, BigDecimal amount) {
+        if (entryType == EntryType.OPENING || settlementId == null) {
+            throw new IllegalArgumentException("DEBIT/CREDIT entries need a settlement id; use LedgerEntry.opening for OPENING");
+        }
         this.id = id;
         this.settlementId = settlementId;
         this.accountId = accountId;
         this.entryType = entryType;
         this.amount = amount;
         this.createdAt = Instant.now();
+    }
+
+    private LedgerEntry(UUID id, UUID accountId, BigDecimal amount) {
+        this.id = id;
+        this.accountId = accountId;
+        this.entryType = EntryType.OPENING;
+        this.amount = amount;
+        this.createdAt = Instant.now();
+    }
+
+    public static LedgerEntry opening(UUID id, UUID accountId, BigDecimal amount) {
+        return new LedgerEntry(id, accountId, amount);
     }
 
     public UUID getId() {

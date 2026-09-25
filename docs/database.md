@@ -6,16 +6,16 @@ Describes the Postgres schema, migrations, and indexing decisions for the settle
 
 ## Current state
 
-Phase 1 through Phase 5.5 tables are built and migrated via Flyway (`V1__init_core_schema.sql` through `V6__fraud_detection.sql`). Nothing remains unbuilt at the schema level.
+Phase 1 through Phase 5.5 tables are built and migrated via Flyway (`V1__init_core_schema.sql` through `V6__fraud_detection.sql`), plus `V7__ledger_opening_entries.sql` and `V8__ledger_mismatches.sql` for ledger consistency (see `reconciliation.md`'s "Ledger consistency mismatches"). Nothing remains unbuilt at the schema level.
 
 ### Core engine tables (built, Phase 1)
 
 - `ledger_accounts`: id, owner_id, balance `NUMERIC(19,4)`, currency `VARCHAR(3)`, version (optimistic lock), created_at
 - `idempotency_keys`: key (primary key, UUID), request_hash, response_snapshot (text, JSON), status (`IN_PROGRESS`, `COMPLETED`), created_at, updated_at
 - `settlements`: id, idempotency_key (unique, FK to `idempotency_keys.key`), source_account_id, destination_account_id (both FK to `ledger_accounts`), amount `NUMERIC(19,4)` (check > 0), currency, status (`PENDING`, `CONFIRMED`, `FAILED`, `UNKNOWN`, `REVERSED`), external_ref, created_at, updated_at; indexed on `status`
-- `ledger_entries`: id, settlement_id (FK), account_id (FK), entry_type (`DEBIT`, `CREDIT`), amount (check > 0), created_at; indexed on `settlement_id` and `account_id`
+- `ledger_entries`: id, settlement_id (FK, nullable since `V7`), account_id (FK), entry_type (`DEBIT`, `CREDIT`, `OPENING`), amount (check > 0), created_at; indexed on `settlement_id` and `account_id`. Check constraint `ledger_entries_settlement_id_by_type_check`: `settlement_id` is null for `OPENING` and required for `DEBIT`/`CREDIT`.
 
-Ledger entries follow double-entry bookkeeping: a settlement only produces ledger entries once it reaches `CONFIRMED` (two entries, debit source + credit destination, net zero). `PENDING`, `FAILED`, and `UNKNOWN` settlements never touch the ledger. All entity IDs (`UUID`) are generated in application code, not by the database, so no `pgcrypto`/`uuid-ossp` extension is required.
+Ledger entries follow double-entry bookkeeping: a settlement only produces ledger entries once it reaches `CONFIRMED` (two entries, debit source + credit destination, net zero). `PENDING`, `FAILED`, and `UNKNOWN` settlements never touch the ledger. An account's starting balance is its `OPENING` entry (none for a zero starting balance), so `balance = sum(OPENING + CREDIT − DEBIT)` holds for every account; `GET /accounts/{id}` checks exactly that. All entity IDs (`UUID`) are generated in application code, not by the database. The only exceptions are one-off SQL backfills (`V7`'s `OPENING` entries, and `load/seed-accounts.sql`), which use Postgres's built-in `gen_random_uuid()` (core since Postgres 13), so still no `pgcrypto`/`uuid-ossp` extension is required.
 
 ### Security tables (built, Phase 2)
 
@@ -32,6 +32,8 @@ Ledger entries follow double-entry bookkeeping: a settlement only produces ledge
 
 - `reconciliation_runs`: id, started_at, finished_at (nullable while running), records_checked, mismatches_found, status (`RUNNING`, `COMPLETED`, `FAILED`).
 - `reconciliation_mismatches`: id, run_id (FK), settlement_id (FK), internal_state, external_state (nullable — no external record found), details (free text describing the discrepancy), resolution_status (`OPEN`, `RESOLVED`), resolved_at, created_at. Partial index on `settlement_id` where `resolution_status = 'OPEN'`, for the dedup check (don't re-flag a settlement that already has an open mismatch) and the "list open mismatches" endpoint.
+
+- `ledger_mismatches` (`V8`): id, account_id (FK to `ledger_accounts`), stored_balance, computed_balance (both `NUMERIC(19,4)`), details, resolution_status (`OPEN`, `RESOLVED`), resolved_at, created_at. Partial index on `account_id` where `resolution_status = 'OPEN'`, same purpose as `reconciliation_mismatches`'s (dedup check plus the list-open endpoint). A sibling of `reconciliation_mismatches`, not a generalization of it (see the decisions log).
 
 ### Invoice financing tables (built, Phase 5)
 
@@ -64,6 +66,9 @@ Ledger entries follow double-entry bookkeeping: a settlement only produces ledge
 | 2026-07-12 | `fraud_assessments.reasons` is a single comma-joined free-text column, not a child table or array column | Matches the existing `reconciliation_mismatches.details` pattern in this schema; reasons are a fixed small set of rule names for display/audit purposes only, never queried on individually |
 | 2026-07-12 | `fraud_assessments` has no foreign key back to `advances` or `settlements` | An assessment can exist without ever producing an advance (the `BLOCK` case) — tying it to `invoices.id` only keeps the row meaningful in both outcomes |
 | 2026-09-21 | `StalePendingSettlementSweepService`'s candidate query (`status = PENDING`, `external_ref IS NULL`, `updated_at` older than its grace period) reuses the existing `idx_settlements_status` index, no new migration | Closes the crash-recovery gap described in `reconciliation.md`'s "Recovering from a crash before finalization" section. `PENDING` settlements are a small, transient subset of the table by design (every settlement resolves to a terminal or `UNKNOWN` state within one gateway round trip in the normal case), so an index scan on `status` narrows the candidate set enough before the `external_ref IS NULL`/`updated_at` filters apply — the same reasoning already applied to `reconciliation_mismatches`'s partial open-mismatch index above, just via an existing single-column index rather than a new partial one, since this doesn't need write-time uniqueness enforcement the way that one's dedup check does |
+| 2026-09-25 | `ledger_entries.settlement_id` made nullable, with a check constraint tying null to `entry_type = 'OPENING'`, rather than a sentinel "opening" settlement row | An opening balance genuinely has no settlement; a fake settlement would pollute every settlement query, the read model, and reconciliation's candidate set. The check constraint keeps `DEBIT`/`CREDIT` exactly as strict as before |
+| 2026-09-25 | `V7` backfill computes `balance − net(existing entries)` per account and skips zero (not insert-a-zero-row), warns and skips negative | `amount > 0` stays true for every entry type; a zero starting balance needs no entry to net correctly. A negative result means the account was already inconsistent, and writing anything would hide that; skipping it lets the live check record it as a `ledger_mismatches` row. Verified by `LedgerOpeningEntriesMigrationTest`, which migrates to `V6`, inserts untouched/settled/zero/already-inconsistent accounts, then runs `V7`/`V8` |
+| 2026-09-25 | `ledger_mismatches` is its own table rather than a nullable `account_id` on `reconciliation_mismatches` | See `reconciliation.md`'s matching decision: different subject (account vs. settlement) and detection path (live read vs. scheduled run); a shared table would need nullable FKs whose valid combinations only a check constraint could explain |
 
 ## Open questions
 
