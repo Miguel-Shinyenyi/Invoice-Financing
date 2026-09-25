@@ -93,7 +93,8 @@ Starts Postgres on `localhost:5432` (db/user/password all `settlement_engine`, m
 ```
 INVOICE_PLATFORM_ACCOUNT_ID=$(uuidgen)
 docker exec -it infra-postgres-1 psql -U settlement_engine -d settlement_engine -c \
-  "insert into ledger_accounts (id, owner_id, balance, currency, version, created_at) values ('$INVOICE_PLATFORM_ACCOUNT_ID', '$(uuidgen)', 1000000.00, 'USD', 0, now());"
+  "insert into ledger_accounts (id, owner_id, balance, currency, version, created_at) values ('$INVOICE_PLATFORM_ACCOUNT_ID', '$(uuidgen)', 1000000.00, 'USD', 0, now()); \
+   insert into ledger_entries (id, settlement_id, account_id, entry_type, amount, created_at) values ('$(uuidgen)', null, '$INVOICE_PLATFORM_ACCOUNT_ID', 'OPENING', 1000000.00, now());"
 SETTLEMENT_DB_URL=... INVOICE_PLATFORM_ACCOUNT_ID=$INVOICE_PLATFORM_ACCOUNT_ID ./mvnw spring-boot:run
 ```
 
@@ -104,11 +105,13 @@ SETTLEMENT_DB_URL=... INVOICE_PLATFORM_ACCOUNT_ID=$INVOICE_PLATFORM_ACCOUNT_ID .
 
 As of Phase 2, every endpoint except `/auth/**` requires a JWT — use Swagger's "Authorize" button and paste `Bearer <accessToken>` from a `POST /auth/login` response before calling anything else.
 
-Current limitations: there is no endpoint yet to create `ledger_accounts` or `users` (not in Phase 1/2 scope). Seed both directly in Postgres, generating IDs client-side (the schema deliberately has no DB-side UUID default — see `database.md`) and the password hash with BCrypt, e.g.:
+Current limitations: there is no endpoint yet to create `ledger_accounts` or `users` (not in Phase 1/2 scope). Seed both directly in Postgres. Every account with a nonzero starting balance also needs a matching `OPENING` row in `ledger_entries` (same amount), or `GET /accounts/{id}` returns `500` and records a ledger mismatch — see `docs/reconciliation.md`'s "Ledger consistency mismatches". Generate IDs client-side (the schema deliberately has no DB-side UUID default — see `database.md`) and the password hash with BCrypt, e.g.:
 
 ```
+ACCOUNT_ID=$(uuidgen)
 docker exec -it infra-postgres-1 psql -U settlement_engine -d settlement_engine -c \
-  "insert into ledger_accounts (id, owner_id, balance, currency, version, created_at) values ('$(uuidgen)', '$(uuidgen)', 1000.00, 'USD', 0, now());"
+  "insert into ledger_accounts (id, owner_id, balance, currency, version, created_at) values ('$ACCOUNT_ID', '$(uuidgen)', 1000.00, 'USD', 0, now()); \
+   insert into ledger_entries (id, settlement_id, account_id, entry_type, amount, created_at) values ('$(uuidgen)', null, '$ACCOUNT_ID', 'OPENING', 1000.00, now());"
 
 # Password hash example (BCrypt of "password123"), or generate your own via
 # a BCryptPasswordEncoder — see security.md for why raw passwords are never stored.
@@ -278,6 +281,7 @@ Update this section every time a phase starts or finishes. Keep entries short.
 | 2026-07-17 | Phase 9 | Fixed | Pushing Phase 9's `dev` merge to staging failed twice: `deploy-staging` reported "Failed" both times on the backend `kubectl rollout status --timeout=180s` step. Confirmed by checking the server directly (not just trusting the CI red X) that this was a false negative, not a real problem — the backend pod genuinely took ~6+ minutes to become ready under real CPU contention on the shared box, and the rollout completed successfully on its own both times regardless of the CI step giving up early. Raised the timeout to 360s |
 | 2026-07-18 | Frontend | Done | Whole dashboard restyled neo-brutalist (bold black borders, flat accent colors, hard offset shadows, sharp corners — design tokens in `frontend/app/globals.css`, see `docs/frontend.md`). Added a public `/about` "Build Story" page (no login required) presenting a curated, phase-by-phase summary of this project's real challenges and fixes, sourced from this status log and every `docs/*.md` decisions log — not new research, just a readable showcase for anyone viewing the live demo without credentials |
 | 2026-09-21 | Reconciliation | Fixed | Found by a documentation/code review, then confirmed against the actual code (not assumed): a settlement orphaned by a hard crash between `createPendingSettlement` committing and `finalizeSettlement` ever running has no `externalRef` (only `finalizeSettlement` sets one), so it was permanently invisible to `ReconciliationService.runOnce()`'s `findByExternalRefIsNotNull()` query, and its idempotency key stayed `IN_PROGRESS` forever — a permanent 409 on every retry with that key. Distinct from the two concurrency races `SettlementService` already retries: both assume a live thread survives to catch an exception, a hard crash leaves none. Fixed (TDD) with a separate scheduled sweep, `StalePendingSettlementSweepService`/`Scheduler` (mirrors `ReconciliationScheduler`'s shape), that finds settlements `PENDING` with no `externalRef` past a grace period (`settlement-engine.reconciliation.stale-pending-grace-period-seconds`, 300s default) and finalizes each as `UNKNOWN` via the existing `SettlementTransactions.finalizeSettlement`, no new state-machine logic. See `docs/reconciliation.md`/`docs/backend.md`/`docs/database.md` decisions logs |
+| 2026-09-25 | Reconciliation | Fixed | Found by reviewing `SettlementTransactions.finalizeSettlement` against `LedgerEntryRepository`: `ledger_accounts.balance` was mutated directly and the `DEBIT`/`CREDIT` rows written beside it were never read back (`finalizeSettlement` was the repository's only caller, no query existed), so the entries were a write-only audit trail and balance drift would go unnoticed. Seeded accounts (nonzero balance, no entries) meant the two already disagreed for every funded account. Fixed with an `OPENING` entry type (`settlement_id` now nullable, check-constrained to null only for `OPENING`), backfilled by `V7` for `balance − net(existing entries)` (zero skipped, negative warned and left for review, not coerced; verified by `LedgerOpeningEntriesMigrationTest` against pre-`V7` data), and a live check on `GET /accounts/{id}` (`LedgerConsistencyService`, before the ownership check) that records an `OPEN` `ledger_mismatches` row (`V8`, sibling of `reconciliation_mismatches`, one open row per account) and returns `500` rather than an untrusted balance. Manual, audited resolution via `GET /reconciliation/ledger-mismatches` and `POST /reconciliation/ledger-mismatches/{id}/resolve`, which doesn't alter the balance. `load/seed-accounts.sql` and the seeding examples above now write `OPENING` entries. 227 tests passing. See `docs/reconciliation.md`/`docs/database.md`/`docs/backend.md` decisions logs |
 
 ## Rules for working on this project
 

@@ -2,10 +2,12 @@ package com.settlementengine.core.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.settlementengine.core.AbstractIntegrationTest;
+import com.settlementengine.core.LedgerFixtures;
 import com.settlementengine.core.domain.LedgerAccount;
 import com.settlementengine.core.readmodel.SettlementReadModel;
 import com.settlementengine.core.readmodel.SettlementReadModelRepository;
 import com.settlementengine.core.repository.LedgerAccountRepository;
+import com.settlementengine.core.repository.LedgerEntryRepository;
 import com.settlementengine.core.security.JwtService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,6 +32,8 @@ class SettlementApiIntegrationTest extends AbstractIntegrationTest {
     @Autowired
     private LedgerAccountRepository ledgerAccountRepository;
     @Autowired
+    private LedgerEntryRepository ledgerEntryRepository;
+    @Autowired
     private SettlementReadModelRepository settlementReadModelRepository;
     @Autowired
     private ObjectMapper objectMapper;
@@ -37,8 +41,8 @@ class SettlementApiIntegrationTest extends AbstractIntegrationTest {
     private JwtService jwtService;
 
     private LedgerAccount createAccount(String balance, UUID ownerId) {
-        return ledgerAccountRepository.save(
-                new LedgerAccount(UUID.randomUUID(), ownerId, new BigDecimal(balance), "USD"));
+        return LedgerFixtures.saveAccountWithOpeningEntry(ledgerAccountRepository, ledgerEntryRepository, ownerId,
+                new BigDecimal(balance), "USD");
     }
 
     private String settlementRequestJson(UUID sourceId, UUID destinationId, String amount) throws Exception {

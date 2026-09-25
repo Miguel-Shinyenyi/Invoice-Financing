@@ -5,6 +5,6 @@ import java.util.UUID;
 public class MismatchNotFoundException extends RuntimeException {
 
     public MismatchNotFoundException(UUID mismatchId) {
-        super("No reconciliation mismatch with id " + mismatchId);
+        super("No mismatch with id " + mismatchId);
     }
 }

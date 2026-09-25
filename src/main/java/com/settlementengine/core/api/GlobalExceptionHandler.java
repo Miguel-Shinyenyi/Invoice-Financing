@@ -5,6 +5,7 @@ import com.settlementengine.core.domain.CurrencyMismatchException;
 import com.settlementengine.core.domain.IdempotencyKeyReusedException;
 import com.settlementengine.core.domain.IllegalStateTransitionException;
 import com.settlementengine.core.domain.InsufficientBalanceException;
+import com.settlementengine.core.domain.LedgerInconsistencyException;
 import com.settlementengine.core.domain.SelfSettlementException;
 import com.settlementengine.core.domain.SettlementInProgressException;
 import com.settlementengine.core.domain.SettlementNotFoundException;
@@ -14,6 +15,8 @@ import com.settlementengine.core.invoicing.InvoiceTransitionException;
 import com.settlementengine.core.reconciliation.MismatchAlreadyResolvedException;
 import com.settlementengine.core.reconciliation.MismatchNotFoundException;
 import com.settlementengine.core.security.InvalidTokenException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -25,6 +28,8 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler({MissingRequestHeaderException.class, MethodArgumentTypeMismatchException.class,
             MethodArgumentNotValidException.class})
@@ -54,6 +59,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({BadCredentialsException.class, InvalidTokenException.class})
     public ResponseEntity<ErrorResponse> handleAuthenticationFailure(RuntimeException ex) {
         return respond(HttpStatus.UNAUTHORIZED, ex.getMessage());
+    }
+
+    // The message carries the account id and both balances.
+    @ExceptionHandler(LedgerInconsistencyException.class)
+    public ResponseEntity<ErrorResponse> handleLedgerInconsistency(LedgerInconsistencyException ex) {
+        log.error(ex.getMessage());
+        return respond(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage());
     }
 
     private ResponseEntity<ErrorResponse> respond(HttpStatus status, String message) {
