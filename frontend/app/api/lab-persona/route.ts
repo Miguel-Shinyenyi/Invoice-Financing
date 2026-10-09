@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { labBackendUrl } from "@/lib/config";
 import { LAB_PERSONA_COOKIE, LAB_ROLES } from "@/lib/lab/cookies";
@@ -30,6 +31,20 @@ export async function POST(request: NextRequest) {
     maxAge: Math.max(60, body.expiresInSeconds - 30),
   });
   return response;
+}
+
+// Which persona is chosen right now. Reads the role claim from the cookie for display only; the sandbox backend
+// is what actually enforces it on every call.
+export async function GET() {
+  const token = (await cookies()).get(LAB_PERSONA_COOKIE)?.value;
+  if (!token) return NextResponse.json({ role: null });
+  try {
+    const payload = JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString("utf-8")) as { role?: string; exp?: number };
+    if (payload.exp && payload.exp * 1000 < Date.now()) return NextResponse.json({ role: null });
+    return NextResponse.json({ role: payload.role ?? null });
+  } catch {
+    return NextResponse.json({ role: null });
+  }
 }
 
 export async function DELETE() {

@@ -51,10 +51,16 @@ public class LabSseSupport {
         });
         emitter.onError(e -> cleanup.run());
         try {
+            // Sent immediately so EventSource.onopen fires at once. A proxy that buffers the stream holds it back, which is
+            // how the front-end hook knows to fall back to polling.
+            emitter.send(SseEmitter.event().name("hello").data("ok"));
             subscription.set(wire.apply(emitter));
-        } catch (RuntimeException e) {
+        } catch (RuntimeException | java.io.IOException e) {
             cleanup.run();
-            throw e;
+            if (e instanceof RuntimeException re) {
+                throw re;
+            }
+            throw new LabBusyException("Could not open the stream.");
         }
         return emitter;
     }
