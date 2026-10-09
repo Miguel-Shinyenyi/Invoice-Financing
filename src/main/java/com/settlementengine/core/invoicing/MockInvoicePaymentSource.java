@@ -26,4 +26,13 @@ public class MockInvoicePaymentSource implements InvoicePaymentSource {
     public void markPaid(String externalSourceRef, BigDecimal amount) {
         payments.put(externalSourceRef, amount);
     }
+
+    public int paymentCount() {
+        return payments.size();
+    }
+
+    /** Forgets every recorded payment, as a process restart would. */
+    public void clear() {
+        payments.clear();
+    }
 }

@@ -44,4 +44,17 @@ public class MockExternalSystem implements ExternalSettlementGateway, ExternalRe
     public void corrupt(String reference, ExternalRecord replacement) {
         records.put(reference, replacement);
     }
+
+    public int recordCount() {
+        return records.size();
+    }
+
+    public java.util.List<ExternalRecord> snapshot() {
+        return java.util.List.copyOf(records.values());
+    }
+
+    /** Forgets every record, as a process restart would. */
+    public void clear() {
+        records.clear();
+    }
 }
