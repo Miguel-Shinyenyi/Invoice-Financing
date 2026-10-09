@@ -22,6 +22,7 @@ export async function settle(page: Page, ms = 300) {
 }
 
 export async function choosePersona(page: Page, role: "ADMIN" | "SUPPORT" | "READ_ONLY") {
-  await page.getByRole("button", { name: new RegExp(`^(✓ )?${role}$`) }).first().click();
-  await expect(page.getByRole("button", { name: new RegExp(`^✓ ${role}$`) }).first()).toBeVisible();
+  const button = page.getByRole("group", { name: "Acting as" }).getByRole("button", { name: role, exact: true });
+  await button.click();
+  await expect(button).toHaveAttribute("aria-pressed", "true");
 }

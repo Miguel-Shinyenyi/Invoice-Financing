@@ -175,3 +175,23 @@ def test_lab_routes_themselves_are_never_blocked_by_the_fault(app_and_logger):
     client.post("/lab/fault", json={"seconds": 30})
     assert client.get("/lab/logs").status_code == 200
     assert client.get("/lab/fault").status_code == 200
+
+
+def test_uvicorn_loggers_that_do_not_propagate_are_captured_too():
+    # configure_json_logging() sets propagate=False on the uvicorn loggers, so a handler on the root logger alone
+    # would never see the access log lines.
+    from lab_support import install_lab as install
+
+    app = FastAPI()
+    access = logging.getLogger("uvicorn.access")
+    previous = access.propagate
+    access.propagate = False
+    handler = install(app)
+    try:
+        access.warning("GET /score 200")
+        events = TestClient(app).get("/lab/logs?text=GET%20/score").json()["events"]
+        assert [e["message"] for e in events] == ["GET /score 200"]
+    finally:
+        access.propagate = previous
+        for name in ("", "uvicorn", "uvicorn.access", "uvicorn.error"):
+            logging.getLogger(name).removeHandler(handler)

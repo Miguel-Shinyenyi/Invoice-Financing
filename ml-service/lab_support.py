@@ -53,7 +53,12 @@ class _FaultRequest(BaseModel):
 def install_lab(app: FastAPI, clock: Callable[[], float] = time.monotonic, ring_size: int = DEFAULT_RING_SIZE,
                 logger: Optional[logging.Logger] = None) -> logging.Handler:
     handler = _RingHandler(ring_size)
-    (logger or logging.getLogger()).addHandler(handler)
+    if logger is not None:
+        logger.addHandler(handler)
+    else:
+        # uvicorn's loggers do not propagate to the root logger (see logging_config.configure_json_logging)
+        for name in ("", "uvicorn", "uvicorn.access", "uvicorn.error"):
+            logging.getLogger(name).addHandler(handler)
     state = {"until": 0.0}
 
     @app.middleware("http")

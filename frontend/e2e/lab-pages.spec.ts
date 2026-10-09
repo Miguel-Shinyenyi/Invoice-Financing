@@ -149,7 +149,7 @@ test("logs: the tail shows lines and the filter narrows them", async ({ page }, 
 
 test("metrics: the dashboards and their queries", async ({ page }, info) => {
   await page.goto("/app/lab/metrics");
-  await expect(page.getByText("Outbox pending")).toBeVisible();
+  await expect(page.getByText("Outbox pending", { exact: true })).toBeVisible();
   await page.getByText("Query").first().click();
   await expect(page.getByText("settlement_outcome_total").first()).toBeVisible();
   await noHorizontalOverflow(page, "metrics");
