@@ -1,0 +1,5 @@
+# Same as staging: no notification integration, alerts only show as firing in Alertmanager itself.
+route:
+  receiver: default
+receivers:
+  - name: default

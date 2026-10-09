@@ -1,0 +1,24 @@
+# Sandbox Prometheus: same job names and metric paths as staging (infra/k8s/08-prometheus.yaml), faster scrape and
+# evaluation so a rule can reach firing within a minute. Rules come from infra/monitoring/alert-rules.yml with
+# only the `for:` durations shortened (see docker-compose.lab.yml).
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+rule_files:
+  - /tmp/rules.yml
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+  - job_name: backend
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["backend:8080"]
+  - job_name: ml-service
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["ml:8000"]

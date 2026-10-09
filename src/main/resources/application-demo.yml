@@ -44,6 +44,14 @@ settlement-engine:
       cooldown-seconds: 10
       min-amount: 0.01
       max-amount: 100.00
+    # Sidecars the lab wrappers read (fixed base URLs; visitor input never selects one).
+    upstreams:
+      jaeger-url: ${LAB_JAEGER_URL:http://jaeger:16686}
+      prometheus-url: ${LAB_PROMETHEUS_URL:http://prometheus:9090}
+      alertmanager-url: ${LAB_ALERTMANAGER_URL:http://alertmanager:9093}
+      ml-url: ${FRAUD_DETECTION_BASE_URL:http://localhost:8000}
+      alert-rules-file: ${LAB_ALERT_RULES_FILE:/lab/monitoring/alert-rules.yml}
+      ml-fault-cooldown-seconds: 30
     sse:
       max-per-ip: 3
       max-total: 50
