@@ -52,12 +52,13 @@ public class LabResetService implements SmartInitializingSingleton {
     private final MockInvoicePaymentSource paymentSource;
     private final List<LabResettable> resettables;
     private final LabProperties props;
+    private final LoadRunGate loadRunGate;
     private volatile LabResetState state;
     private volatile Instant lastRequestedAt = Instant.EPOCH;
 
     public LabResetService(DataSource dataSource, JdbcTemplate jdbc, PlatformTransactionManager txManager,
                            MockExternalSystem externalSystem, MockInvoicePaymentSource paymentSource,
-                           List<LabResettable> resettables, LabProperties props) {
+                           List<LabResettable> resettables, LabProperties props, LoadRunGate loadRunGate) {
         this.dataSource = dataSource;
         this.jdbc = jdbc;
         this.tx = new TransactionTemplate(txManager);
@@ -65,6 +66,7 @@ public class LabResetService implements SmartInitializingSingleton {
         this.paymentSource = paymentSource;
         this.resettables = resettables;
         this.props = props;
+        this.loadRunGate = loadRunGate;
     }
 
     @Override
@@ -75,6 +77,10 @@ public class LabResetService implements SmartInitializingSingleton {
     @Scheduled(fixedDelayString = "${settlement-engine.demo.auto-reset-minutes:30}",
             initialDelayString = "${settlement-engine.demo.auto-reset-minutes:30}", timeUnit = TimeUnit.MINUTES)
     public void scheduledReset() {
+        if (loadRunGate.activeRunId() != null) {
+            log.info("Skipping scheduled lab reset: a load run is in progress");
+            return;
+        }
         reset();
     }
 
@@ -86,6 +92,9 @@ public class LabResetService implements SmartInitializingSingleton {
         if (now.isBefore(allowedAt)) {
             throw new LabBusyException("Reset is limited to once per " + props.resetCooldownSeconds()
                     + " seconds; try again in " + Duration.between(now, allowedAt).toSeconds() + "s.");
+        }
+        if (loadRunGate.activeRunId() != null) {
+            throw new LabBusyException("A load run is in progress; reset after it finishes.");
         }
         lastRequestedAt = now;
         return reset();

@@ -2,6 +2,7 @@ package com.settlementengine.core.lab;
 
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -12,7 +13,8 @@ import org.testcontainers.kafka.KafkaContainer;
  * class) so Spring's context cache can be reused across lab test classes. The database is named
  * {@code settlement_engine_lab}: the demo profile's startup guard refuses anything else.
  */
-@SpringBootTest(properties = {
+@SpringBootTest
+@TestPropertySource(properties = {
         "settlement-engine.demo.enabled=true",
         // the per-IP limiter is covered by LabRateLimitIntegrationTest; here every call comes from 127.0.0.1
         "settlement-engine.demo.requests-per-minute-per-ip=100000",
