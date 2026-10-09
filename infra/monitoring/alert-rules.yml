@@ -1,0 +1,31 @@
+# The one canonical copy of the alert rules. Two stacks use it:
+#   - the Lab sandbox (infra/docker-compose.lab.yml) mounts this file; its Prometheus starts through a tiny
+#     `sed` that shortens only the `for:` durations (1m -> 15s, 5m -> 30s) so a rule can reach `firing`
+#     within a minute of a real cause. Expressions, labels and annotations are untouched.
+#   - staging (infra/k8s/08-prometheus.yaml) carries an inline copy of the same rules, because `kubectl apply -f
+#     infra/k8s/` cannot read a file outside the manifest. AlertRulesSyncTest fails the build if the two differ,
+#     so they cannot drift.
+groups:
+  - name: invoice-financing
+    rules:
+      - alert: BackendDown
+        expr: up{job="backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backend has not been scrapeable for 1 minute"
+      - alert: MLServiceDown
+        expr: up{job="ml-service"} == 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Fraud-detection ml-service has not been scrapeable for 1 minute (backend fails open, financing still works, but fraud signal is degraded)"
+      - alert: SettlementFailureRateSpike
+        expr: rate(settlement_outcome_total{outcome="FAILED"}[5m]) / rate(settlement_outcome_total[5m]) > 0.5
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Over half of settlements are FAILing (5m window)"

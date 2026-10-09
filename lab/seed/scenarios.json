@@ -1,1 +1,857 @@
-[]
+[
+  {
+    "id": "clean-settlement",
+    "group": "Settlements",
+    "title": "A clean settlement",
+    "visitorSees": "One request creates a settlement. The steps list shows every row the engine wrote, in order, and the ledger entries and outbox events that came with it.",
+    "engineDoes": [
+      {
+        "class": "SettlementService",
+        "method": "createSettlement",
+        "what": "Looks up the idempotency key, creates the pending row, calls the gateway, finalizes."
+      },
+      {
+        "class": "SettlementTransactions",
+        "method": "createPendingSettlement",
+        "what": "One transaction: idempotency key (IN_PROGRESS), settlement PENDING, settlement.requested outbox event."
+      },
+      {
+        "class": "SettlementTransactions",
+        "method": "finalizeSettlement",
+        "what": "One transaction: status, DEBIT and CREDIT ledger entries, balances, settlement.confirmed outbox event, idempotency key COMPLETED."
+      }
+    ],
+    "lookFor": "The key is written in the same transaction as the pending row. The ledger entries and the outbox event are written in the same transaction as the status change.",
+    "honestLimit": "The external system is an in-memory mock. Nothing here proves behaviour against a real bank.",
+    "doc": {
+      "path": "docs/reconciliation.md",
+      "anchor": "idempotency",
+      "label": "Idempotency"
+    },
+    "knownGap": null,
+    "action": {
+      "route": "/lab/playground",
+      "method": "POST",
+      "endpoint": "/lab/settlements",
+      "body": {
+        "fault": {
+          "mode": "NONE"
+        }
+      }
+    }
+  },
+  {
+    "id": "idempotent-retry",
+    "group": "Settlements",
+    "title": "Retry with the same key (case 3: double delivery)",
+    "visitorSees": "Re-sending the same Idempotency-Key and body returns the stored response. No second gateway call, no new rows, money moves once.",
+    "engineDoes": [
+      {
+        "class": "SettlementService",
+        "method": "createSettlement",
+        "what": "finds the key, sees COMPLETED, returns the stored snapshot via handleExisting."
+      },
+      {
+        "class": "RequestHasher",
+        "method": "hash",
+        "what": "Hashes the request body so a different body under the same key can be detected."
+      }
+    ],
+    "lookFor": "The response's settlementId is identical. The account balance moved once. The step list is a single 'idempotency key already known' step.",
+    "honestLimit": "The key table is the only dedup. A client that invents a new key for a retry is a new request.",
+    "doc": {
+      "path": "docs/reconciliation.md",
+      "anchor": "idempotency",
+      "label": "Idempotency"
+    },
+    "knownGap": null,
+    "action": {
+      "route": "/lab/playground",
+      "method": "POST",
+      "endpoint": "/lab/settlements/retry"
+    }
+  },
+  {
+    "id": "body-mismatch",
+    "group": "Settlements",
+    "title": "Same key, different body",
+    "visitorSees": "Re-using a key with a changed amount is rejected as a 409 conflict instead of being treated as a retry.",
+    "engineDoes": [
+      {
+        "class": "SettlementService",
+        "method": "handleExisting",
+        "what": "compares the stored request hash with the new one and throws IdempotencyKeyReusedException."
+      }
+    ],
+    "lookFor": "httpStatus 409 in the envelope, and no new settlement row.",
+    "honestLimit": "The hash covers accounts, amount and currency only.",
+    "doc": {
+      "path": "docs/reconciliation.md",
+      "anchor": "idempotency",
+      "label": "Idempotency"
+    },
+    "knownGap": null,
+    "action": {
+      "route": "/lab/playground",
+      "method": "POST",
+      "endpoint": "/lab/settlements/retry"
+    }
+  },
+  {
+    "id": "in-progress-conflict",
+    "group": "Settlements",
+    "title": "A duplicate arrives mid-flight (409 in progress)",
+    "visitorSees": "Start a settlement with a slow gateway, then send the same key again before it finishes. The second request is told the first is still running.",
+    "engineDoes": [
+      {
+        "class": "SettlementService",
+        "method": "handleExisting",
+        "what": "sees IN_PROGRESS and throws SettlementInProgressException (409)."
+      }
+    ],
+    "lookFor": "The second response is a 409 while the first is still waiting on the gateway.",
+    "honestLimit": "The window is as long as the injected latency (at most 3 seconds). In production it is as long as the real gateway call.",
+    "doc": {
+      "path": "docs/reconciliation.md",
+      "anchor": "idempotency",
+      "label": "Idempotency"
+    },
+    "knownGap": null,
+    "action": {
+      "route": "/lab/chaos#slow-gateway",
+      "method": "POST",
+      "endpoint": "/lab/settlements",
+      "body": {
+        "fault": {
+          "mode": "SLOW",
+          "slowMs": 3000
+        }
+      }
+    }
+  },
+  {
+    "id": "request-lost",
+    "group": "Failure cases",
+    "title": "Case 1: the request never reached the external system",
+    "visitorSees": "The gateway throws before any external record is written. The settlement ends UNKNOWN with no reference.",
+    "engineDoes": [
+      {
+        "class": "SettlementService",
+        "method": "createSettlement",
+        "what": "catches the gateway exception and finalizes UNKNOWN with a null reference."
+      },
+      {
+        "class": "FaultInjectingGateway",
+        "method": "execute",
+        "what": "throws before delegating to the mock (a lost request)."
+      }
+    ],
+    "lookFor": "Status UNKNOWN, externalRef null, no external record held. It is flagged as stranded.",
+    "honestLimit": "Nothing will ever resolve this settlement. Reconciliation only loads settlements that have a reference.",
+    "doc": {
+      "path": "docs/reconciliation.md",
+      "anchor": "open-questions",
+      "label": "Open questions: UNKNOWN with no externalRef"
+    },
+    "knownGap": 1,
+    "action": {
+      "route": "/lab/chaos#request-lost",
+      "method": "POST",
+      "endpoint": "/lab/settlements",
+      "body": {
+        "fault": {
+          "mode": "REQUEST_LOST"
+        }
+      }
+    }
+  },
+  {
+    "id": "response-lost",
+    "group": "Failure cases",
+    "title": "Case 2: the external system did it, the response was lost",
+    "visitorSees": "The external system holds a record, but the engine never learned its reference. The settlement ends UNKNOWN with no reference.",
+    "engineDoes": [
+      {
+        "class": "FaultInjectingGateway",
+        "method": "execute",
+        "what": "delegates to MockExternalSystem (which writes the record) and then throws."
+      },
+      {
+        "class": "SettlementService",
+        "method": "createSettlement",
+        "what": "treats the exception as 'we do not know' and finalizes UNKNOWN."
+      }
+    ],
+    "lookFor": "The playground shows the orphaned external reference. Money moved externally, not internally.",
+    "honestLimit": "The engine cannot recover the reference. This is the case reconciliation was built for, and it still cannot reach it.",
+    "doc": {
+      "path": "docs/reconciliation.md",
+      "anchor": "open-questions",
+      "label": "Open questions: UNKNOWN with no externalRef"
+    },
+    "knownGap": 1,
+    "action": {
+      "route": "/lab/chaos#response-lost",
+      "method": "POST",
+      "endpoint": "/lab/settlements",
+      "body": {
+        "fault": {
+          "mode": "RESPONSE_LOST"
+        }
+      }
+    }
+  },
+  {
+    "id": "declined",
+    "group": "Failure cases",
+    "title": "A definite decline",
+    "visitorSees": "The gateway answers FAILED. The settlement is FAILED and no money moves.",
+    "engineDoes": [
+      {
+        "class": "SettlementTransactions",
+        "method": "finalizeSettlement",
+        "what": "writes FAILED, no ledger entries, a settlement.failed event."
+      }
+    ],
+    "lookFor": "No ledger entries, balances unchanged. Driven at volume it pushes the SettlementFailureRateSpike alert.",
+    "honestLimit": "A decline is the easy case: the engine is told the truth.",
+    "doc": {
+      "path": "docs/reconciliation.md",
+      "anchor": "settlement-state-machine",
+      "label": "Settlement state machine"
+    },
+    "knownGap": null,
+    "action": {
+      "route": "/lab/chaos",
+      "method": "POST",
+      "endpoint": "/lab/settlements",
+      "body": {
+        "fault": {
+          "mode": "DECLINED"
+        }
+      }
+    }
+  },
+  {
+    "id": "slow-gateway",
+    "group": "Failure cases",
+    "title": "A slow gateway",
+    "visitorSees": "The gateway answers correctly but late (up to 3 seconds). The latency shows in the request and in the trace.",
+    "engineDoes": [
+      {
+        "class": "FaultInjectingGateway",
+        "method": "execute",
+        "what": "sleeps, then delegates."
+      }
+    ],
+    "lookFor": "The gateway span is the long one in the trace. A parallel duplicate gets a 409.",
+    "honestLimit": "The call holds a request thread for the whole delay. There is no timeout in the engine's gateway call.",
+    "doc": {
+      "path": "docs/reconciliation.md",
+      "anchor": "idempotency",
+      "label": "Idempotency"
+    },
+    "knownGap": null,
+    "action": {
+      "route": "/lab/chaos#slow-gateway",
+      "method": "POST",
+      "endpoint": "/lab/settlements",
+      "body": {
+        "fault": {
+          "mode": "SLOW",
+          "slowMs": 2000
+        }
+      }
+    }
+  },
+  {
+    "id": "orphaned-pending",
+    "group": "Failure cases",
+    "title": "A crash between the two transactions",
+    "visitorSees": "A settlement stays PENDING with its key IN_PROGRESS, exactly as after a hard crash. Retries get 409 until the sweep finalizes it.",
+    "engineDoes": [
+      {
+        "class": "SettlementTransactions",
+        "method": "createPendingSettlement",
+        "what": "commits the pending row and stops."
+      },
+      {
+        "class": "StalePendingSettlementSweepService",
+        "method": "runOnce",
+        "what": "after the grace period, finalizes it as UNKNOWN and unblocks the key."
+      }
+    ],
+    "lookFor": "PENDING, then UNKNOWN once the (compressed) grace period has passed. The idempotency key becomes COMPLETED.",
+    "honestLimit": "This reproduces the database state of a crash. It does not kill a process.",
+    "doc": {
+      "path": "docs/reconciliation.md",
+      "anchor": "recovering-from-a-crash-before-finalization",
+      "label": "Recovering from a crash before finalization"
+    },
+    "knownGap": 1,
+    "action": {
+      "route": "/lab/chaos#orphaned-pending",
+      "method": "POST",
+      "endpoint": "/lab/settlements/orphan"
+    }
+  },
+  {
+    "id": "external-forgotten",
+    "group": "Reconciliation",
+    "title": "The external record disappears",
+    "visitorSees": "Forget an external record. After the grace period, reconciliation opens a 'No external record found' mismatch.",
+    "engineDoes": [
+      {
+        "class": "ReconciliationService",
+        "method": "reconcileOne",
+        "what": "finds no record past the grace period and calls flagMismatch."
+      }
+    ],
+    "lookFor": "An OPEN mismatch with the settlement id, plus a reconciliation.mismatch_found outbox event.",
+    "honestLimit": "Nothing alerts a human. The mismatch is seen only if someone opens the reconciliation screen.",
+    "doc": {
+      "path": "docs/reconciliation.md",
+      "anchor": "reconciliation-process",
+      "label": "Reconciliation process"
+    },
+    "knownGap": 6,
+    "action": {
+      "route": "/lab/chaos#external-forgotten",
+      "method": "POST",
+      "endpoint": "/lab/external/{ref}/forget"
+    }
+  },
+  {
+    "id": "external-corrupted",
+    "group": "Reconciliation",
+    "title": "The external record disagrees",
+    "visitorSees": "Change an external record's amount, currency or status. The next run opens a mismatch that names which one.",
+    "engineDoes": [
+      {
+        "class": "ReconciliationService",
+        "method": "reconcileOne",
+        "what": "compares amount and currency, then status, and flags a mismatch; it never auto-resolves a CONFIRMED or FAILED settlement."
+      }
+    ],
+    "lookFor": "Different details text for amount/currency versus status mismatches.",
+    "honestLimit": "Resolving records a reason and an audit entry. It does not change the settlement or the balance.",
+    "doc": {
+      "path": "docs/reconciliation.md",
+      "anchor": "reconciliation-process",
+      "label": "Reconciliation process"
+    },
+    "knownGap": 2,
+    "action": {
+      "route": "/lab/chaos#external-corrupted",
+      "method": "POST",
+      "endpoint": "/lab/external/{ref}/corrupt"
+    }
+  },
+  {
+    "id": "resolve-does-not-fix",
+    "group": "Reconciliation",
+    "title": "Resolving a mismatch does not change data",
+    "visitorSees": "Resolve a settlement or ledger mismatch with the real endpoint. The balance and the settlement are untouched.",
+    "engineDoes": [
+      {
+        "class": "ReconciliationController",
+        "method": "resolve",
+        "what": "records the reason, marks the row RESOLVED, audit-logs it."
+      }
+    ],
+    "lookFor": "After resolving a ledger mismatch, the next read of the account opens a fresh row.",
+    "honestLimit": "No endpoint corrects data. The Lab's repair helper is a stand-in for a human editing the database.",
+    "doc": {
+      "path": "docs/reconciliation.md",
+      "anchor": "open-questions",
+      "label": "Open questions: resolving does not correct data"
+    },
+    "knownGap": 2,
+    "action": {
+      "route": "/lab/reconciliation",
+      "method": "POST",
+      "endpoint": "/reconciliation/ledger-mismatches/{id}/resolve"
+    }
+  },
+  {
+    "id": "balance-hand-edit",
+    "group": "Reconciliation",
+    "title": "Someone edits a balance by hand",
+    "visitorSees": "A direct row update makes the stored balance disagree with its entries. Reading the account returns 500 and opens a ledger mismatch.",
+    "engineDoes": [
+      {
+        "class": "LedgerConsistencyService",
+        "method": "verify",
+        "what": "compares the stored balance with the net of its entries on every GET /accounts/{id}."
+      },
+      {
+        "class": "GlobalExceptionHandler",
+        "method": "handleLedgerInconsistency",
+        "what": "maps LedgerInconsistencyException to 500."
+      }
+    ],
+    "lookFor": "500 with both numbers, one OPEN ledger mismatch. Resolve it without repairing: the next read opens another.",
+    "honestLimit": "Only accounts someone reads are ever checked. The repair button is a lab-only helper, not a product feature.",
+    "doc": {
+      "path": "docs/reconciliation.md",
+      "anchor": "ledger-consistency-mismatches",
+      "label": "Ledger consistency mismatches"
+    },
+    "knownGap": 2,
+    "action": {
+      "route": "/lab/chaos#balance-hand-edit",
+      "method": "POST",
+      "endpoint": "/lab/accounts/{id}/hand-edit-balance"
+    }
+  },
+  {
+    "id": "stranded-unknown",
+    "group": "Reconciliation",
+    "title": "Stranded UNKNOWN settlements",
+    "visitorSees": "A list of settlements stuck in UNKNOWN with no reference, and why reconciliation cannot touch them.",
+    "engineDoes": [
+      {
+        "class": "ReconciliationService",
+        "method": "runOnce",
+        "what": "loads only findByExternalRefIsNotNull(), so these never enter a run."
+      }
+    ],
+    "lookFor": "They stay UNKNOWN after any number of runs. No mismatch is ever opened for them.",
+    "honestLimit": "Shown as it is. Fixing it is a separate decision.",
+    "doc": {
+      "path": "docs/reconciliation.md",
+      "anchor": "open-questions",
+      "label": "Open questions: UNKNOWN with no externalRef"
+    },
+    "knownGap": 1,
+    "action": {
+      "route": "/lab/reconciliation",
+      "method": "GET",
+      "endpoint": "/lab/reconciliation/stranded"
+    }
+  },
+  {
+    "id": "reversed-no-code-path",
+    "group": "Reconciliation",
+    "title": "REVERSED has no code path",
+    "visitorSees": "One settlement is REVERSED, seeded by hand. The state machine allows CONFIRMED to REVERSED, but nothing transitions there.",
+    "engineDoes": [
+      {
+        "class": "SettlementStatus",
+        "method": "canTransitionTo",
+        "what": "allows CONFIRMED to REVERSED; no code in src/main calls it."
+      }
+    ],
+    "lookFor": "The state machine on /lab marks REVERSED 'seeded by hand, no code path produces this'.",
+    "honestLimit": "Reversals are not implemented.",
+    "doc": {
+      "path": "docs/reconciliation.md",
+      "anchor": "settlement-state-machine",
+      "label": "Settlement state machine"
+    },
+    "knownGap": 3,
+    "action": {
+      "route": "/lab",
+      "method": "GET",
+      "endpoint": "/lab/state-machines"
+    }
+  },
+  {
+    "id": "unseen-mismatches",
+    "group": "Reconciliation",
+    "title": "Nobody is told about a mismatch",
+    "visitorSees": "An 'Unseen mismatches' count that grows until someone opens the reconciliation screen, and a topic with zero consumers.",
+    "engineDoes": [
+      {
+        "class": "ReconciliationService",
+        "method": "flagMismatch",
+        "what": "publishes reconciliation.mismatch_found through the outbox. Nothing consumes it."
+      }
+    ],
+    "lookFor": "Consumers: 0 on reconciliation.mismatch_found. The alert board has a row for the rule that does not exist.",
+    "honestLimit": "The unseen count is the Lab's measure, not a product feature.",
+    "doc": {
+      "path": "docs/kafka-events.md",
+      "anchor": "current-state",
+      "label": "Kafka events: topics and consumers"
+    },
+    "knownGap": 6,
+    "action": {
+      "route": "/lab/events",
+      "method": "GET",
+      "endpoint": "/lab/events"
+    }
+  },
+  {
+    "id": "fraud-clean",
+    "group": "Invoices and fraud",
+    "title": "A clean invoice",
+    "visitorSees": "An established account, a unique customer reference and a modest advance. Score 0, ALLOW.",
+    "engineDoes": [
+      {
+        "class": "InvoiceService",
+        "method": "financeInvoice",
+        "what": "computes the fraud features, calls POST /score, stores a FraudAssessment, blocks or claims the invoice."
+      },
+      {
+        "class": "HttpFraudDetectionClient",
+        "method": "check",
+        "what": "fails open when the service is unreachable."
+      }
+    ],
+    "lookFor": "Score, decision and reasons exactly as the service returned them: No rule fires.",
+    "honestLimit": "Rules are four hand-written thresholds, not a trained model.",
+    "doc": {
+      "path": "docs/fraud-detection.md",
+      "anchor": "fail-open",
+      "label": "Fraud detection: fail-open"
+    },
+    "knownGap": null,
+    "action": {
+      "route": "/lab/invoices",
+      "method": "POST",
+      "endpoint": "/lab/invoices/demo",
+      "body": {
+        "scenario": "CLEAN"
+      }
+    }
+  },
+  {
+    "id": "fraud-duplicate",
+    "group": "Invoices and fraud",
+    "title": "A duplicate customer reference",
+    "visitorSees": "The same reference already sits on another business's invoice. Score 0.4, still ALLOW.",
+    "engineDoes": [
+      {
+        "class": "InvoiceService",
+        "method": "financeInvoice",
+        "what": "computes the fraud features, calls POST /score, stores a FraudAssessment, blocks or claims the invoice."
+      },
+      {
+        "class": "HttpFraudDetectionClient",
+        "method": "check",
+        "what": "fails open when the service is unreachable."
+      }
+    ],
+    "lookFor": "Score, decision and reasons exactly as the service returned them: duplicate_customer_reference (+0.4)",
+    "honestLimit": "One rule alone never blocks.",
+    "doc": {
+      "path": "docs/fraud-detection.md",
+      "anchor": "fail-open",
+      "label": "Fraud detection: fail-open"
+    },
+    "knownGap": null,
+    "action": {
+      "route": "/lab/invoices",
+      "method": "POST",
+      "endpoint": "/lab/invoices/demo",
+      "body": {
+        "scenario": "DUPLICATE_REFERENCE"
+      }
+    }
+  },
+  {
+    "id": "fraud-new-account",
+    "group": "Invoices and fraud",
+    "title": "A new account with a high advance",
+    "visitorSees": "A brand-new account asks for more than 500. Score 0.3, ALLOW.",
+    "engineDoes": [
+      {
+        "class": "InvoiceService",
+        "method": "financeInvoice",
+        "what": "computes the fraud features, calls POST /score, stores a FraudAssessment, blocks or claims the invoice."
+      },
+      {
+        "class": "HttpFraudDetectionClient",
+        "method": "check",
+        "what": "fails open when the service is unreachable."
+      }
+    ],
+    "lookFor": "Score, decision and reasons exactly as the service returned them: new_account_high_advance (+0.3)",
+    "honestLimit": "Account age is computed from the ledger account's creation time.",
+    "doc": {
+      "path": "docs/fraud-detection.md",
+      "anchor": "fail-open",
+      "label": "Fraud detection: fail-open"
+    },
+    "knownGap": null,
+    "action": {
+      "route": "/lab/invoices",
+      "method": "POST",
+      "endpoint": "/lab/invoices/demo",
+      "body": {
+        "scenario": "NEW_ACCOUNT_HIGH_ADVANCE"
+      }
+    }
+  },
+  {
+    "id": "fraud-refinancing",
+    "group": "Invoices and fraud",
+    "title": "Rapid refinancing",
+    "visitorSees": "The account already has three outstanding advances. Score 0.3, ALLOW.",
+    "engineDoes": [
+      {
+        "class": "InvoiceService",
+        "method": "financeInvoice",
+        "what": "computes the fraud features, calls POST /score, stores a FraudAssessment, blocks or claims the invoice."
+      },
+      {
+        "class": "HttpFraudDetectionClient",
+        "method": "check",
+        "what": "fails open when the service is unreachable."
+      }
+    ],
+    "lookFor": "Score, decision and reasons exactly as the service returned them: rapid_refinancing (+0.3)",
+    "honestLimit": "Counts FINANCED and OVERDUE invoices on the account.",
+    "doc": {
+      "path": "docs/fraud-detection.md",
+      "anchor": "fail-open",
+      "label": "Fraud detection: fail-open"
+    },
+    "knownGap": null,
+    "action": {
+      "route": "/lab/invoices",
+      "method": "POST",
+      "endpoint": "/lab/invoices/demo",
+      "body": {
+        "scenario": "RAPID_REFINANCING"
+      }
+    }
+  },
+  {
+    "id": "fraud-block",
+    "group": "Invoices and fraud",
+    "title": "The combination that blocks",
+    "visitorSees": "Duplicate reference on a new account with a high advance reaches 0.7 and is BLOCKed. Nothing is disbursed.",
+    "engineDoes": [
+      {
+        "class": "InvoiceService",
+        "method": "financeInvoice",
+        "what": "computes the fraud features, calls POST /score, stores a FraudAssessment, blocks or claims the invoice."
+      },
+      {
+        "class": "HttpFraudDetectionClient",
+        "method": "check",
+        "what": "fails open when the service is unreachable."
+      }
+    ],
+    "lookFor": "Score, decision and reasons exactly as the service returned them: duplicate_customer_reference + new_account_high_advance = 0.7 (the BLOCK threshold)",
+    "honestLimit": "If the ml-service is down the backend fails open and allows financing.",
+    "doc": {
+      "path": "docs/fraud-detection.md",
+      "anchor": "fail-open",
+      "label": "Fraud detection: fail-open"
+    },
+    "knownGap": null,
+    "action": {
+      "route": "/lab/invoices",
+      "method": "POST",
+      "endpoint": "/lab/invoices/demo",
+      "body": {
+        "scenario": "BLOCKED_COMBINATION"
+      }
+    }
+  },
+  {
+    "id": "invoice-repayment",
+    "group": "Invoices and fraud",
+    "title": "Mark an invoice paid, run repayment",
+    "visitorSees": "Mark a financed invoice paid in the mock payment source, then run the repayment job. The business repays advance plus fee.",
+    "engineDoes": [
+      {
+        "class": "InvoiceRepaymentService",
+        "method": "checkRepayments",
+        "what": "detects the payment, creates the repayment settlement, records the repayment."
+      },
+      {
+        "class": "MockInvoicePaymentSource",
+        "method": "markPaid",
+        "what": "records the payment in memory."
+      }
+    ],
+    "lookFor": "Invoice REPAID, advance REPAID, a second settlement from business to platform. A wrong amount is left for review.",
+    "honestLimit": "The payment source is in memory: a restart forgets it.",
+    "doc": {
+      "path": "docs/reconciliation.md",
+      "anchor": "applied-to-invoice-financing",
+      "label": "Applied to invoice financing"
+    },
+    "knownGap": 5,
+    "action": {
+      "route": "/lab/invoices",
+      "method": "POST",
+      "endpoint": "/lab/invoices/{id}/mark-paid"
+    }
+  },
+  {
+    "id": "load-fresh",
+    "group": "Load",
+    "title": "Fresh settlements across the pool",
+    "visitorSees": "Several virtual users create settlements between six accounts. Live throughput, latency percentiles, outcomes and connection pool use.",
+    "engineDoes": [
+      {
+        "class": "LabLoadDriver",
+        "method": "run",
+        "what": "sends real HTTP requests to this app on loopback with the sandbox ADMIN token."
+      }
+    ],
+    "lookFor": "Invariants at the end: pool total unchanged, balances equal their entries, outbox drained, read model caught up.",
+    "honestLimit": "Runs on the same host as the app, with a JVM client. Numbers differ from k6.",
+    "doc": {
+      "path": "docs/testing.md",
+      "anchor": "current-state",
+      "label": "Testing: load"
+    },
+    "knownGap": null,
+    "action": {
+      "route": "/lab/load",
+      "method": "POST",
+      "endpoint": "/lab/load/start",
+      "body": {
+        "scenario": "FRESH_SETTLEMENTS"
+      }
+    }
+  },
+  {
+    "id": "load-duplicate",
+    "group": "Load",
+    "title": "Duplicate-key burst",
+    "visitorSees": "Many virtual users send the same Idempotency-Key at once. Money moves exactly once.",
+    "engineDoes": [
+      {
+        "class": "SettlementService",
+        "method": "createSettlement",
+        "what": "one request wins the key insert; the others get the cached result or a 409."
+      }
+    ],
+    "lookFor": "The duplicate-key invariant: the pair moved by exactly one settlement's amount.",
+    "honestLimit": "Under heavy contention Postgres deadlocks are retried and, if exhausted, fall back to UNKNOWN.",
+    "doc": {
+      "path": "docs/reconciliation.md",
+      "anchor": "idempotency",
+      "label": "Idempotency"
+    },
+    "knownGap": null,
+    "action": {
+      "route": "/lab/load",
+      "method": "POST",
+      "endpoint": "/lab/load/start",
+      "body": {
+        "scenario": "DUPLICATE_KEY_BURST"
+      }
+    }
+  },
+  {
+    "id": "load-chaos",
+    "group": "Load",
+    "title": "Load with injected faults",
+    "visitorSees": "A load run where some calls lose their response or are declined. UNKNOWN outcomes appear as a count, not as a failure.",
+    "engineDoes": [
+      {
+        "class": "SettlementService",
+        "method": "createSettlement",
+        "what": "finalizes lost calls as UNKNOWN; the counters settlement.finalize.retries and settlement.unknown.fallback show contention."
+      }
+    ],
+    "lookFor": "The stranded count with its explanation, and the invariants still passing.",
+    "honestLimit": "Faults are injected at the gateway boundary only.",
+    "doc": {
+      "path": "docs/reconciliation.md",
+      "anchor": "open-questions",
+      "label": "Open questions: UNKNOWN with no externalRef"
+    },
+    "knownGap": 1,
+    "action": {
+      "route": "/lab/load",
+      "method": "POST",
+      "endpoint": "/lab/load/start",
+      "body": {
+        "scenario": "FRESH_SETTLEMENTS",
+        "fault": {
+          "responseLost": 0.05
+        }
+      }
+    }
+  },
+  {
+    "id": "ml-fault",
+    "group": "Observability",
+    "title": "Take the fraud service down",
+    "visitorSees": "For up to 60 seconds the ml-service answers 503. MLServiceDown goes pending then firing, and financing still works (fail open).",
+    "engineDoes": [
+      {
+        "class": "HttpFraudDetectionClient",
+        "method": "check",
+        "what": "returns allowNoSignal on any client error."
+      }
+    ],
+    "lookFor": "The alert board, the health strip, and a clean invoice still financing with no fraud signal.",
+    "honestLimit": "The sandbox uses shorter for: durations than staging. The real durations are shown beside them.",
+    "doc": {
+      "path": "docs/fraud-detection.md",
+      "anchor": "fail-open",
+      "label": "Fraud detection: fail-open"
+    },
+    "knownGap": null,
+    "action": {
+      "route": "/lab/alerts",
+      "method": "POST",
+      "endpoint": "/lab/ml/fault",
+      "body": {
+        "seconds": 45
+      }
+    }
+  },
+  {
+    "id": "personas-access",
+    "group": "Access",
+    "title": "Three roles, real 200s and 403s",
+    "visitorSees": "Switch between ADMIN, SUPPORT and READ_ONLY and call the real endpoints. READ_ONLY sees only its own accounts.",
+    "engineDoes": [
+      {
+        "class": "RowLevelAccessGuard",
+        "method": "requireOwnership",
+        "what": "filters by the owner id in the token."
+      }
+    ],
+    "lookFor": "READ_ONLY reading someone else's inconsistent account gets 500, not 403: the ledger check runs before the ownership check.",
+    "honestLimit": "That ordering is a recorded weakness in docs/security.md, shown as it is.",
+    "doc": {
+      "path": "docs/security.md",
+      "anchor": "current-state",
+      "label": "Security: access rules"
+    },
+    "knownGap": null,
+    "action": {
+      "route": "/lab/access",
+      "method": "POST",
+      "endpoint": "/lab/personas/{role}/token"
+    }
+  },
+  {
+    "id": "out-of-order-events",
+    "group": "Observability",
+    "title": "Events arriving out of order",
+    "visitorSees": "A settlement.confirmed event published before its settlement.requested. The read model keeps the later state.",
+    "engineDoes": [
+      {
+        "class": "SettlementEventConsumer",
+        "method": "upsert",
+        "what": "applies a last-write-wins check on the event timestamp."
+      }
+    ],
+    "lookFor": "The read model row ends CONFIRMED whichever order the events arrive in.",
+    "honestLimit": "Optional demo; uses the real producer on the real topics.",
+    "doc": {
+      "path": "docs/kafka-events.md",
+      "anchor": "current-state",
+      "label": "Kafka events"
+    },
+    "knownGap": null,
+    "action": {
+      "route": "/lab/events",
+      "method": "POST",
+      "endpoint": "/lab/events/out-of-order"
+    }
+  }
+]
