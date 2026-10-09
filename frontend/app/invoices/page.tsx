@@ -3,6 +3,8 @@ import { apiFetch, requireUser } from "@/lib/api";
 import type { InvoiceSummary, Page } from "@/lib/types";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Pagination } from "@/components/Pagination";
+import { PageContainer } from "@/components/DetailList";
+import { NavChip, PageHeader, Table } from "@/components/ui";
 
 const STATUSES = ["ISSUED", "FINANCED", "REPAID", "OVERDUE"];
 
@@ -24,73 +26,28 @@ export default async function InvoicesPage({
   const data = await apiFetch<Page<InvoiceSummary>>(`/invoices?${query.toString()}`);
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-8">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-black uppercase tracking-tight text-black">Invoices</h1>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/invoices" className={`neo-chip ${!status ? "bg-[var(--color-neo-yellow)]" : "bg-white"}`}>
-            All
-          </Link>
+    <PageContainer>
+      <PageHeader title="Invoices">
+        <div className="flex max-w-full flex-wrap gap-2">
+          <NavChip href="/invoices" active={!status}>All</NavChip>
           {STATUSES.map((s) => (
-            <Link
-              key={s}
-              href={`/invoices?status=${s}`}
-              className={`neo-chip ${status === s ? "bg-[var(--color-neo-yellow)]" : "bg-white"}`}
-            >
-              {s}
-            </Link>
+            <NavChip key={s} href={`/invoices?status=${s}`} active={status === s}>{s}</NavChip>
           ))}
         </div>
-      </div>
-
-      <div className="neo-card overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="border-b-2 border-black text-left text-xs font-black uppercase tracking-wide text-black">
-            <tr>
-              <th className="px-4 py-3">Invoice</th>
-              <th className="px-4 py-3">Customer ref</th>
-              <th className="px-4 py-3">Business account</th>
-              <th className="px-4 py-3">Amount</th>
-              <th className="px-4 py-3">Due</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Updated</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y-2 divide-black">
-            {data.content.map((invoice) => (
-              <tr key={invoice.id} className="hover:bg-yellow-50">
-                <td className="px-4 py-3">
-                  <Link href={`/invoices/${invoice.id}`} className="font-mono text-xs font-bold text-black hover:underline">
-                    {invoice.id.slice(0, 8)}
-                  </Link>
-                </td>
-                <td className="px-4 py-3 font-bold text-black">{invoice.customerReference}</td>
-                <td className="px-4 py-3 font-mono text-xs font-bold text-black">
-                  <Link href={`/accounts/${invoice.businessAccountId}`} className="hover:underline">
-                    {invoice.businessAccountId.slice(0, 8)}
-                  </Link>
-                </td>
-                <td className="px-4 py-3 font-bold text-black">
-                  {invoice.amount} {invoice.currency}
-                </td>
-                <td className="px-4 py-3 font-medium text-black">{new Date(invoice.dueDate).toLocaleDateString()}</td>
-                <td className="px-4 py-3">
-                  <StatusBadge status={invoice.status} />
-                </td>
-                <td className="px-4 py-3 font-medium text-black">{new Date(invoice.updatedAt).toLocaleString()}</td>
-              </tr>
-            ))}
-            {data.content.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-4 py-8 text-center font-bold text-black">
-                  No invoices found.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-        <Pagination basePath="/invoices" page={data.page.number} totalPages={data.page.totalPages} extraParams={{ status }} />
-      </div>
-    </div>
+      </PageHeader>
+      <Table head={["Invoice", "Customer reference", "Business", "Amount", "Due", "Status"]} empty={data.content.length === 0 ? "No invoices found." : undefined}>
+        {data.content.map((i) => (
+          <tr key={i.id}>
+            <td className="px-3 py-2"><Link href={`/invoices/${i.id}`} className="font-mono text-xs font-bold underline">{i.id.slice(0, 8)}</Link></td>
+            <td className="px-3 py-2">{i.customerReference}</td>
+            <td className="px-3 py-2"><Link href={`/accounts/${i.businessAccountId}`} className="font-mono text-xs font-bold underline">{i.businessAccountId.slice(0, 8)}</Link></td>
+            <td className="px-3 py-2 font-bold">{i.amount} {i.currency}</td>
+            <td className="whitespace-nowrap px-3 py-2">{new Date(i.dueDate).toLocaleDateString()}</td>
+            <td className="px-3 py-2"><StatusBadge status={i.status} /></td>
+          </tr>
+        ))}
+      </Table>
+      <div className="neo-card mt-4"><Pagination basePath="/invoices" page={data.page.number} totalPages={data.page.totalPages} extraParams={{ status }} /></div>
+    </PageContainer>
   );
 }

@@ -3,6 +3,8 @@ import { apiFetch, requireUser } from "@/lib/api";
 import type { Page, SettlementSummary } from "@/lib/types";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Pagination } from "@/components/Pagination";
+import { PageContainer } from "@/components/DetailList";
+import { NavChip, PageHeader, Table } from "@/components/ui";
 
 const STATUSES = ["PENDING", "CONFIRMED", "FAILED", "UNKNOWN", "REVERSED"];
 
@@ -24,75 +26,31 @@ export default async function SettlementsPage({
   const data = await apiFetch<Page<SettlementSummary>>(`/settlements?${query.toString()}`);
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-8">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-black uppercase tracking-tight text-black">Settlements</h1>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/settlements" className={`neo-chip ${!status ? "bg-[var(--color-neo-yellow)]" : "bg-white"}`}>
-            All
-          </Link>
+    <PageContainer>
+      <PageHeader title="Settlements" subtitle="From the read model: the CQRS projection of the settlements table.">
+        <div className="flex max-w-full flex-wrap gap-2">
+          <NavChip href="/settlements" active={!status}>All</NavChip>
           {STATUSES.map((s) => (
-            <Link
-              key={s}
-              href={`/settlements?status=${s}`}
-              className={`neo-chip ${status === s ? "bg-[var(--color-neo-yellow)]" : "bg-white"}`}
-            >
-              {s}
-            </Link>
+            <NavChip key={s} href={`/settlements?status=${s}`} active={status === s}>{s}</NavChip>
           ))}
         </div>
-      </div>
+      </PageHeader>
 
-      <div className="neo-card overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="border-b-2 border-black text-left text-xs font-black uppercase tracking-wide text-black">
-            <tr>
-              <th className="px-4 py-3">Settlement</th>
-              <th className="px-4 py-3">Source</th>
-              <th className="px-4 py-3">Destination</th>
-              <th className="px-4 py-3">Amount</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Updated</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y-2 divide-black">
-            {data.content.map((settlement) => (
-              <tr key={settlement.settlementId} className="hover:bg-yellow-50">
-                <td className="px-4 py-3">
-                  <Link href={`/settlements/${settlement.settlementId}`} className="font-mono text-xs font-bold text-black hover:underline">
-                    {settlement.settlementId.slice(0, 8)}
-                  </Link>
-                </td>
-                <td className="px-4 py-3 font-mono text-xs font-bold text-black">
-                  <Link href={`/accounts/${settlement.sourceAccountId}`} className="hover:underline">
-                    {settlement.sourceAccountId.slice(0, 8)}
-                  </Link>
-                </td>
-                <td className="px-4 py-3 font-mono text-xs font-bold text-black">
-                  <Link href={`/accounts/${settlement.destinationAccountId}`} className="hover:underline">
-                    {settlement.destinationAccountId.slice(0, 8)}
-                  </Link>
-                </td>
-                <td className="px-4 py-3 font-bold text-black">
-                  {settlement.amount} {settlement.currency}
-                </td>
-                <td className="px-4 py-3">
-                  <StatusBadge status={settlement.status} />
-                </td>
-                <td className="px-4 py-3 font-medium text-black">{new Date(settlement.updatedAt).toLocaleString()}</td>
-              </tr>
-            ))}
-            {data.content.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center font-bold text-black">
-                  No settlements found.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+      <Table head={["Settlement", "Source", "Destination", "Amount", "Status", "Updated"]} empty={data.content.length === 0 ? "No settlements found." : undefined}>
+        {data.content.map((s) => (
+          <tr key={s.settlementId}>
+            <td className="px-3 py-2"><Link href={`/settlements/${s.settlementId}`} className="font-mono text-xs font-bold underline">{s.settlementId.slice(0, 8)}</Link></td>
+            <td className="px-3 py-2"><Link href={`/accounts/${s.sourceAccountId}`} className="font-mono text-xs font-bold underline">{s.sourceAccountId.slice(0, 8)}</Link></td>
+            <td className="px-3 py-2"><Link href={`/accounts/${s.destinationAccountId}`} className="font-mono text-xs font-bold underline">{s.destinationAccountId.slice(0, 8)}</Link></td>
+            <td className="px-3 py-2 font-bold">{s.amount} {s.currency}</td>
+            <td className="px-3 py-2"><StatusBadge status={s.status} /></td>
+            <td className="whitespace-nowrap px-3 py-2">{new Date(s.updatedAt).toLocaleString()}</td>
+          </tr>
+        ))}
+      </Table>
+      <div className="neo-card mt-4">
         <Pagination basePath="/settlements" page={data.page.number} totalPages={data.page.totalPages} extraParams={{ status }} />
       </div>
-    </div>
+    </PageContainer>
   );
 }

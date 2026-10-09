@@ -155,4 +155,37 @@ export const buildHistory: BuildPhase[] = [
       },
     ],
   },
+  {
+    phase: "Lab",
+    title: "A public sandbox for the real engine",
+    summary:
+      "A separate stack (its own database, Kafka, fraud service, backend, tracing and alerting) where a visitor runs the real settlement engine and watches it: idempotency, the state machine, the outbox and Kafka, reconciliation, ledger checks, fraud scoring, access control, logs, metrics, traces, alerts, and load and chaos runs. Faults are injected only at the engine's boundaries, never inside its logic, and six known gaps are shown exactly as they are.",
+    challenges: [
+      {
+        problem:
+          "A public sandbox that can truncate tables and generate load must never be pointed at the shared staging database, even by mistake or a copied config.",
+        fix: "A startup guard runs before any bean (so before Flyway or the first truncate) and refuses a datasource whose database name does not end in _lab, or whose host is the staging server. Every lab bean also needs both the demo profile and an explicit property, so the default and staging profiles load zero lab beans, proven with a context-runner test.",
+      },
+      {
+        problem:
+          "A load run needed fault injection, but the load runner sends real HTTP over loopback, so a per-thread fault set by a lab endpoint never reaches the request's thread.",
+        fix: "The runner tags its requests with the run id, honoured only from loopback and only for the one active run, and the profile it selects was validated against the caps when the run started. The engine's own code is never touched.",
+      },
+      {
+        problem:
+          "The first invoice-repayment scenario failed: a business holds only the advance after financing, but repayment collects the advance plus the fee, so it hit insufficient balance.",
+        fix: "Found by running it against the real fraud service, not a stub. Lab businesses now start with a small opening balance (with its OPENING entry), and the gap is recorded as an observation rather than hidden.",
+      },
+      {
+        problem:
+          "The sandbox's alert rules and staging's had to match, but staging is deployed with kubectl apply of a directory, which cannot read an outside file, and the pipeline was not to change.",
+        fix: "One canonical rules file, and a test that fails the build if staging's inline copy ever differs from it. Only the for: durations are shortened in the sandbox, and the UI shows both.",
+      },
+      {
+        problem:
+          "Building the Grafana-equivalent latency chart showed the repo never enables histogram buckets, so the staging p95 panel queries a series Spring Boot does not publish by default.",
+        fix: "Recorded as an open question in the observability doc rather than silently fixed; the sandbox enables the histogram so its copy of the panel works.",
+      },
+    ],
+  },
 ];

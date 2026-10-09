@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { BASE_PATH } from "@/lib/basePath";
 
-export function ResolveMismatchForm({ mismatchId }: { mismatchId: string }) {
+export function ResolveMismatchForm({ mismatchId, kind = "mismatches" }: { mismatchId: string; kind?: "mismatches" | "ledger-mismatches" }) {
   const router = useRouter();
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
@@ -18,7 +18,7 @@ export function ResolveMismatchForm({ mismatchId }: { mismatchId: string }) {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${BASE_PATH}/api/reconciliation/mismatches/${mismatchId}/resolve`, {
+      const response = await fetch(`${BASE_PATH}/api/reconciliation/${kind}/${mismatchId}/resolve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reason }),
@@ -35,15 +35,15 @@ export function ResolveMismatchForm({ mismatchId }: { mismatchId: string }) {
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       <input
         type="text"
         value={reason}
         onChange={(e) => setReason(e.target.value)}
         placeholder="Resolution reason"
-        className="neo-input text-sm"
+        className="neo-input min-w-0 flex-1 text-sm"
       />
-      <button onClick={resolve} disabled={loading} className="neo-btn bg-[var(--color-neo-green)] text-white">
+      <button onClick={resolve} disabled={loading} className="neo-btn bg-[var(--color-neo-green)] text-black">
         {loading ? "Resolving..." : "Resolve"}
       </button>
       {error && <span className="text-xs font-bold text-[var(--color-neo-red)]">{error}</span>}

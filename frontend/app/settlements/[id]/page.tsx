@@ -2,61 +2,29 @@ import Link from "next/link";
 import { apiFetch, requireUser } from "@/lib/api";
 import type { Settlement } from "@/lib/types";
 import { StatusBadge } from "@/components/StatusBadge";
+import { DetailList, PageContainer } from "@/components/DetailList";
+import { PageHeader } from "@/components/ui";
 
 export default async function SettlementDetailPage({ params }: { params: Promise<{ id: string }> }) {
   await requireUser();
   const { id } = await params;
-  const settlement = await apiFetch<Settlement>(`/settlements/${id}`);
+  const s = await apiFetch<Settlement>(`/settlements/${id}`);
 
   return (
-    <div className="mx-auto max-w-2xl px-6 py-8">
-      <Link href="/settlements" className="text-sm font-bold text-black hover:underline">
-        &larr; Settlements
-      </Link>
-      <h1 className="mt-2 mb-6 font-mono text-lg font-bold text-black">{settlement.settlementId}</h1>
-
-      <dl className="neo-card grid grid-cols-2 gap-4 p-6">
-        <div>
-          <dt className="text-xs font-black uppercase tracking-wide text-black">Status</dt>
-          <dd className="mt-1">
-            <StatusBadge status={settlement.status} />
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs font-black uppercase tracking-wide text-black">Amount</dt>
-          <dd className="mt-1 font-bold text-black">
-            {settlement.amount} {settlement.currency}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs font-black uppercase tracking-wide text-black">Source account</dt>
-          <dd className="mt-1">
-            <Link href={`/accounts/${settlement.sourceAccountId}`} className="font-mono text-xs font-bold text-black hover:underline">
-              {settlement.sourceAccountId}
-            </Link>
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs font-black uppercase tracking-wide text-black">Destination account</dt>
-          <dd className="mt-1">
-            <Link href={`/accounts/${settlement.destinationAccountId}`} className="font-mono text-xs font-bold text-black hover:underline">
-              {settlement.destinationAccountId}
-            </Link>
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs font-black uppercase tracking-wide text-black">External ref</dt>
-          <dd className="mt-1 font-medium text-black">{settlement.externalRef ?? "—"}</dd>
-        </div>
-        <div>
-          <dt className="text-xs font-black uppercase tracking-wide text-black">Created</dt>
-          <dd className="mt-1 font-medium text-black">{new Date(settlement.createdAt).toLocaleString()}</dd>
-        </div>
-        <div>
-          <dt className="text-xs font-black uppercase tracking-wide text-black">Updated</dt>
-          <dd className="mt-1 font-medium text-black">{new Date(settlement.updatedAt).toLocaleString()}</dd>
-        </div>
-      </dl>
-    </div>
+    <PageContainer narrow>
+      <Link href="/settlements" className="text-sm font-bold hover:underline">&larr; Settlements</Link>
+      <div className="mt-2"><PageHeader title="Settlement" subtitle={<span className="break-all font-mono">{s.settlementId}</span>} /></div>
+      <DetailList
+        items={[
+          ["Status", <StatusBadge key="s" status={s.status} />],
+          ["Amount", `${s.amount} ${s.currency}`],
+          ["Source account", <Link key="a" href={`/accounts/${s.sourceAccountId}`} className="break-all font-mono text-xs font-bold underline">{s.sourceAccountId}</Link>],
+          ["Destination account", <Link key="b" href={`/accounts/${s.destinationAccountId}`} className="break-all font-mono text-xs font-bold underline">{s.destinationAccountId}</Link>],
+          ["External ref", s.externalRef ?? "—"],
+          ["Created", new Date(s.createdAt).toLocaleString()],
+          ["Updated", new Date(s.updatedAt).toLocaleString()],
+        ]}
+      />
+    </PageContainer>
   );
 }

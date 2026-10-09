@@ -1,74 +1,64 @@
 import Link from "next/link";
 import { apiFetch, requireUser } from "@/lib/api";
-import type { ReconciliationMismatch } from "@/lib/types";
+import type { LedgerMismatch, ReconciliationMismatch } from "@/lib/types";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ResolveMismatchForm } from "@/components/ResolveMismatchForm";
 import { TriggerRunButton } from "@/components/TriggerRunButton";
+import { PageContainer } from "@/components/DetailList";
+import { Notice, PageHeader, Table } from "@/components/ui";
 
 export default async function ReconciliationPage() {
   const user = await requireUser();
   if (user.role !== "ADMIN" && user.role !== "SUPPORT") {
     return (
-      <div className="mx-auto max-w-4xl px-6 py-8">
-        <p className="font-bold text-black">You don&apos;t have access to reconciliation.</p>
-      </div>
+      <PageContainer narrow>
+        <p className="font-bold">You don&apos;t have access to reconciliation.</p>
+      </PageContainer>
     );
   }
 
-  const mismatches = await apiFetch<ReconciliationMismatch[]>("/reconciliation/mismatches");
+  const [mismatches, ledgerMismatches] = await Promise.all([
+    apiFetch<ReconciliationMismatch[]>("/reconciliation/mismatches"),
+    apiFetch<LedgerMismatch[]>("/reconciliation/ledger-mismatches"),
+  ]);
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-8">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-black uppercase tracking-tight text-black">Reconciliation</h1>
+    <PageContainer>
+      <PageHeader title="Reconciliation" subtitle="Open items needing a human decision. Resolving records a reason and an audit entry; it does not change the settlement or the balance.">
         <TriggerRunButton />
-      </div>
+      </PageHeader>
 
-      <div className="neo-card overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="border-b-2 border-black text-left text-xs font-black uppercase tracking-wide text-black">
-            <tr>
-              <th className="px-4 py-3">Settlement</th>
-              <th className="px-4 py-3">Internal state</th>
-              <th className="px-4 py-3">External state</th>
-              <th className="px-4 py-3">Details</th>
-              <th className="px-4 py-3">Found</th>
-              <th className="px-4 py-3">Resolve</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y-2 divide-black">
-            {mismatches.map((mismatch) => (
-              <tr key={mismatch.id} className="hover:bg-yellow-50">
-                <td className="px-4 py-3">
-                  <Link href={`/settlements/${mismatch.settlementId}`} className="font-mono text-xs font-bold text-black hover:underline">
-                    {mismatch.settlementId.slice(0, 8)}
-                  </Link>
-                </td>
-                <td className="px-4 py-3">
-                  <StatusBadge status={mismatch.internalState} />
-                </td>
-                <td className="px-4 py-3">
-                  <StatusBadge status={mismatch.externalState ?? "UNKNOWN"} />
-                </td>
-                <td className="max-w-xs truncate px-4 py-3 font-medium text-black" title={mismatch.details}>
-                  {mismatch.details}
-                </td>
-                <td className="px-4 py-3 font-medium text-black">{new Date(mismatch.createdAt).toLocaleString()}</td>
-                <td className="px-4 py-3">
-                  <ResolveMismatchForm mismatchId={mismatch.id} />
-                </td>
-              </tr>
-            ))}
-            {mismatches.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center font-bold text-black">
-                  No open mismatches.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+      <h2 className="mb-2 text-sm font-black uppercase tracking-wide">Settlement mismatches</h2>
+      <Table head={["Settlement", "Internal", "External", "Details", "Found", "Resolve"]} empty={mismatches.length === 0 ? "No open mismatches." : undefined}>
+        {mismatches.map((m) => (
+          <tr key={m.id}>
+            <td className="px-3 py-2"><Link href={`/settlements/${m.settlementId}`} className="font-mono text-xs font-bold underline">{m.settlementId.slice(0, 8)}</Link></td>
+            <td className="px-3 py-2"><StatusBadge status={m.internalState} /></td>
+            <td className="px-3 py-2"><StatusBadge status={m.externalState ?? "UNKNOWN"} /></td>
+            <td className="min-w-56 px-3 py-2 text-xs">{m.details}</td>
+            <td className="whitespace-nowrap px-3 py-2">{new Date(m.createdAt).toLocaleString()}</td>
+            <td className="min-w-64 px-3 py-2"><ResolveMismatchForm mismatchId={m.id} /></td>
+          </tr>
+        ))}
+      </Table>
+
+      <h2 className="mb-2 mt-8 text-sm font-black uppercase tracking-wide">Ledger mismatches</h2>
+      <div className="mb-3">
+        <Notice tone="yellow" title="Found when an account is read.">
+          An account whose stored balance disagrees with the net of its ledger entries. Resolving a row does not correct the balance: until the data is fixed by hand, the next read of that account opens a new row.
+        </Notice>
       </div>
-    </div>
+      <Table head={["Account", "Stored", "Computed", "Found", "Resolve"]} empty={ledgerMismatches.length === 0 ? "No open ledger mismatches." : undefined}>
+        {ledgerMismatches.map((m) => (
+          <tr key={m.id}>
+            <td className="px-3 py-2"><Link href={`/accounts/${m.accountId}`} className="font-mono text-xs font-bold underline">{m.accountId.slice(0, 8)}</Link></td>
+            <td className="px-3 py-2 font-mono">{m.storedBalance}</td>
+            <td className="px-3 py-2 font-mono">{m.computedBalance}</td>
+            <td className="whitespace-nowrap px-3 py-2">{new Date(m.createdAt).toLocaleString()}</td>
+            <td className="min-w-64 px-3 py-2"><ResolveMismatchForm mismatchId={m.id} kind="ledger-mismatches" /></td>
+          </tr>
+        ))}
+      </Table>
+    </PageContainer>
   );
 }

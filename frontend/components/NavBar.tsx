@@ -14,40 +14,29 @@ export function NavBar({ role }: { role: string | null }) {
   }
 
   return (
-    <nav className="flex items-center justify-between border-b-2 border-black bg-white px-6 py-3">
-      <div className="flex items-center gap-6">
+    <nav aria-label="Main" className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b-2 border-black bg-white px-4 py-3 sm:px-6">
+      <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-4">
         <span className="font-black uppercase tracking-tight text-black">Invoice Financing</span>
+        <Link href="/lab" className="neo-chip bg-[var(--color-neo-green)] text-black">Lab</Link>
         {role && (
           <>
-            <Link href="/settlements" className="neo-chip bg-white hover:bg-[var(--color-neo-yellow)]">
-              Settlements
-            </Link>
-            <Link href="/invoices" className="neo-chip bg-white hover:bg-[var(--color-neo-yellow)]">
-              Invoices
-            </Link>
+            <Link href="/settlements" className="neo-chip bg-white hover:bg-[var(--color-neo-yellow)]">Settlements</Link>
+            <Link href="/invoices" className="neo-chip bg-white hover:bg-[var(--color-neo-yellow)]">Invoices</Link>
             {(role === "ADMIN" || role === "SUPPORT") && (
-              <Link href="/reconciliation" className="neo-chip bg-white hover:bg-[var(--color-neo-yellow)]">
-                Reconciliation
-              </Link>
+              <Link href="/reconciliation" className="neo-chip bg-white hover:bg-[var(--color-neo-yellow)]">Reconciliation</Link>
             )}
           </>
         )}
-        <Link href="/about" className="neo-chip bg-white hover:bg-[var(--color-neo-pink)]">
-          Build Story
-        </Link>
+        <Link href="/about" className="neo-chip bg-white hover:bg-[var(--color-neo-pink)]">Build Story</Link>
       </div>
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
         {role ? (
           <>
             <span className="neo-badge bg-[var(--color-neo-blue)] text-white">{role}</span>
-            <button onClick={logout} className="neo-btn">
-              Sign out
-            </button>
+            <button onClick={logout} className="neo-btn">Sign out</button>
           </>
         ) : (
-          <Link href="/login" className="neo-btn bg-[var(--color-neo-yellow)]">
-            Log in
-          </Link>
+          <Link href="/login" className="neo-btn bg-[var(--color-neo-yellow)]">Log in</Link>
         )}
       </div>
     </nav>

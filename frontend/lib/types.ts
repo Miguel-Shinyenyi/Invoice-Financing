@@ -85,3 +85,14 @@ export interface ReconciliationMismatch {
   resolvedAt: string | null;
   createdAt: string;
 }
+
+export interface LedgerMismatch {
+  id: string;
+  accountId: string;
+  storedBalance: number;
+  computedBalance: number;
+  details: string;
+  resolutionStatus: string;
+  resolvedAt: string | null;
+  createdAt: string;
+}

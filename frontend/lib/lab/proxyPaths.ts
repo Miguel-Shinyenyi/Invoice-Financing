@@ -7,11 +7,18 @@ const TOKEN = "[A-Za-z0-9_.-]{1,64}";
 
 const re = (s: string) => new RegExp(`^${s}$`);
 
+// Same fixed lists the backend enforces (LabDataService.WHITELIST, KafkaTopics). Repeated here so the proxy refuses
+// anything else before a request is made.
+const TABLES = ["settlements", "idempotency_keys", "ledger_accounts", "ledger_entries", "outbox_events", "settlement_read_model",
+  "invoices", "advances", "fraud_assessments", "reconciliation_runs", "reconciliation_mismatches", "ledger_mismatches"].join("|");
+const TOPICS = ["settlement\\.requested", "settlement\\.confirmed", "settlement\\.failed", "settlement\\.unknown",
+  "reconciliation\\.mismatch_found", "reconciliation\\.resolved"].join("|");
+
 export const labGet: RegExp[] = [
   re("status"), re("health"), re("scenarios"), re("system"), re("state-machines"), re("personas"),
-  re("logs"), re("logs/stream"), re("metrics"), re("events"), re("kafka"), re(`kafka/topics/${TOKEN}/messages`),
+  re("logs"), re("logs/stream"), re("metrics"), re("events"), re("kafka"), re(`kafka/topics/(${TOPICS})/messages`),
   re("traces"), re("traces/[0-9a-f]{16,32}"), re("alerts"), re("audit"), re("requests"), re("correlate"),
-  re(`data/${TOKEN}`),
+  re(`data/(${TABLES})`),
   re(`settlements/${UUID}/inspect`),
   re("reconciliation/runs"), re("reconciliation/mismatches"), re("reconciliation/ledger-mismatches"),
   re("reconciliation/stranded"), re("reconciliation/summary"),
