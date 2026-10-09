@@ -1,0 +1,754 @@
+{
+  "runId": "676b3949-d9b5-4b41-b9ec-01a5d9eae7a5",
+  "status": "COMPLETED",
+  "plan": {
+    "scenario": "FRESH_SETTLEMENTS",
+    "virtualUsers": 20,
+    "durationSeconds": 30,
+    "totalRequests": 5000,
+    "amount": 1,
+    "fault": null,
+    "seed": 38997
+  },
+  "startedAt": "2026-10-09T15:03:59.031539134Z",
+  "finishedAt": "2026-10-09T15:04:39.759379708Z",
+  "samples": [
+    {
+      "second": 1,
+      "at": "2026-10-09T15:04:00.229408134Z",
+      "totalRequests": 38,
+      "requestsPerSecond": 37.93535811184206,
+      "p50Ms": 323.452928,
+      "p95Ms": 942.637056,
+      "p99Ms": 948.404224,
+      "statusCounts": {
+        "201": 38
+      },
+      "outcomeCounts": {
+        "CONFIRMED": 35,
+        "UNKNOWN": 3
+      },
+      "finalizeRetries": 65,
+      "unknownFallbacks": 3,
+      "hikariActive": 5,
+      "hikariIdle": 5,
+      "hikariPending": 0
+    },
+    {
+      "second": 2,
+      "at": "2026-10-09T15:04:01.231031343Z",
+      "totalRequests": 38,
+      "requestsPerSecond": 0,
+      "p50Ms": 323.452928,
+      "p95Ms": 942.637056,
+      "p99Ms": 948.404224,
+      "statusCounts": {
+        "201": 38
+      },
+      "outcomeCounts": {
+        "CONFIRMED": 35,
+        "UNKNOWN": 3
+      },
+      "finalizeRetries": 71,
+      "unknownFallbacks": 4,
+      "hikariActive": 10,
+      "hikariIdle": 0,
+      "hikariPending": 6
+    },
+    {
+      "second": 3,
+      "at": "2026-10-09T15:04:02.241095969Z",
+      "totalRequests": 100,
+      "requestsPerSecond": 61.41723993931177,
+      "p50Ms": 293.584896,
+      "p95Ms": 1538.244608,
+      "p99Ms": 1631.567872,
+      "statusCounts": {
+        "201": 100
+      },
+      "outcomeCounts": {
+        "CONFIRMED": 88,
+        "UNKNOWN": 12
+      },
+      "finalizeRetries": 157,
+      "unknownFallbacks": 12,
+      "hikariActive": 6,
+      "hikariIdle": 4,
+      "hikariPending": 0
+    },
+    {
+      "second": 4,
+      "at": "2026-10-09T15:04:03.233157636Z",
+      "totalRequests": 182,
+      "requestsPerSecond": 82.73417963524764,
+      "p50Ms": 154.517504,
+      "p95Ms": 1331.675136,
+      "p99Ms": 1631.567872,
+      "statusCounts": {
+        "201": 182
+      },
+      "outcomeCounts": {
+        "CONFIRMED": 165,
+        "UNKNOWN": 17
+      },
+      "finalizeRetries": 246,
+      "unknownFallbacks": 17,
+      "hikariActive": 5,
+      "hikariIdle": 5,
+      "hikariPending": 0
+    },
+    {
+      "second": 5,
+      "at": "2026-10-09T15:04:04.232350886Z",
+      "totalRequests": 236,
+      "requestsPerSecond": 54.02995507157096,
+      "p50Ms": 165.134336,
+      "p95Ms": 1313.849344,
+      "p99Ms": 1591.721984,
+      "statusCounts": {
+        "201": 236
+      },
+      "outcomeCounts": {
+        "CONFIRMED": 212,
+        "UNKNOWN": 24
+      },
+      "finalizeRetries": 307,
+      "unknownFallbacks": 24,
+      "hikariActive": 10,
+      "hikariIdle": 0,
+      "hikariPending": 5
+    },
+    {
+      "second": 6,
+      "at": "2026-10-09T15:04:05.233920720Z",
+      "totalRequests": 283,
+      "requestsPerSecond": 46.99378897189295,
+      "p50Ms": 199.081984,
+      "p95Ms": 1223.671808,
+      "p99Ms": 1591.721984,
+      "statusCounts": {
+        "201": 285
+      },
+      "outcomeCounts": {
+        "CONFIRMED": 256,
+        "UNKNOWN": 29
+      },
+      "finalizeRetries": 375,
+      "unknownFallbacks": 29,
+      "hikariActive": 4,
+      "hikariIdle": 6,
+      "hikariPending": 0
+    },
+    {
+      "second": 7,
+      "at": "2026-10-09T15:04:06.423039721Z",
+      "totalRequests": 304,
+      "requestsPerSecond": 17.660514443687898,
+      "p50Ms": 188.33408,
+      "p95Ms": 1164.951552,
+      "p99Ms": 1561.31328,
+      "statusCounts": {
+        "201": 304
+      },
+      "outcomeCounts": {
+        "CONFIRMED": 275,
+        "UNKNOWN": 29
+      },
+      "finalizeRetries": 401,
+      "unknownFallbacks": 29,
+      "hikariActive": 10,
+      "hikariIdle": 0,
+      "hikariPending": 1
+    },
+    {
+      "second": 8,
+      "at": "2026-10-09T15:04:07.230941346Z",
+      "totalRequests": 359,
+      "requestsPerSecond": 67.97083124464633,
+      "p50Ms": 183.222272,
+      "p95Ms": 1289.732096,
+      "p99Ms": 1561.31328,
+      "statusCounts": {
+        "201": 359
+      },
+      "outcomeCounts": {
+        "CONFIRMED": 324,
+        "UNKNOWN": 35
+      },
+      "finalizeRetries": 465,
+      "unknownFallbacks": 35,
+      "hikariActive": 4,
+      "hikariIdle": 6,
+      "hikariPending": 0
+    },
+    {
+      "second": 9,
+      "at": "2026-10-09T15:04:08.230383972Z",
+      "totalRequests": 445,
+      "requestsPerSecond": 86.0770317129124,
+      "p50Ms": 159.236096,
+      "p95Ms": 1225.76896,
+      "p99Ms": 1558.167552,
+      "statusCounts": {
+        "201": 446
+      },
+      "outcomeCounts": {
+        "CONFIRMED": 408,
+        "UNKNOWN": 38
+      },
+      "finalizeRetries": 556,
+      "unknownFallbacks": 38,
+      "hikariActive": 10,
+      "hikariIdle": 0,
+      "hikariPending": 4
+    },
+    {
+      "second": 10,
+      "at": "2026-10-09T15:04:09.235832930Z",
+      "totalRequests": 528,
+      "requestsPerSecond": 82.99114758326073,
+      "p50Ms": 149.798912,
+      "p95Ms": 1121.959936,
+      "p99Ms": 1538.244608,
+      "statusCounts": {
+        "201": 528
+      },
+      "outcomeCounts": {
+        "CONFIRMED": 488,
+        "UNKNOWN": 40
+      },
+      "finalizeRetries": 653,
+      "unknownFallbacks": 40,
+      "hikariActive": 4,
+      "hikariIdle": 6,
+      "hikariPending": 0
+    },
+    {
+      "second": 11,
+      "at": "2026-10-09T15:04:10.225561042Z",
+      "totalRequests": 627,
+      "requestsPerSecond": 98.98654604562113,
+      "p50Ms": 136.822784,
+      "p95Ms": 1012.908032,
+      "p99Ms": 1453.309952,
+      "statusCounts": {
+        "201": 627
+      },
+      "outcomeCounts": {
+        "CONFIRMED": 580,
+        "UNKNOWN": 47
+      },
+      "finalizeRetries": 749,
+      "unknownFallbacks": 47,
+      "hikariActive": 9,
+      "hikariIdle": 1,
+      "hikariPending": 0
+    },
+    {
+      "second": 12,
+      "at": "2026-10-09T15:04:11.237032750Z",
+      "totalRequests": 715,
+      "requestsPerSecond": 87.02419767150937,
+      "p50Ms": 127.000576,
+      "p95Ms": 903.86432,
+      "p99Ms": 1429.200896,
+      "statusCounts": {
+        "201": 715
+      },
+      "outcomeCounts": {
+        "CONFIRMED": 666,
+        "UNKNOWN": 49
+      },
+      "finalizeRetries": 828,
+      "unknownFallbacks": 49,
+      "hikariActive": 10,
+      "hikariIdle": 0,
+      "hikariPending": 6
+    },
+    {
+      "second": 13,
+      "at": "2026-10-09T15:04:12.230933834Z",
+      "totalRequests": 716,
+      "requestsPerSecond": 1.0094282700029074,
+      "p50Ms": 127.000576,
+      "p95Ms": 903.86432,
+      "p99Ms": 1429.200896,
+      "statusCounts": {
+        "201": 716
+      },
+      "outcomeCounts": {
+        "CONFIRMED": 667,
+        "UNKNOWN": 49
+      },
+      "finalizeRetries": 830,
+      "unknownFallbacks": 49,
+      "hikariActive": 10,
+      "hikariIdle": 0,
+      "hikariPending": 11
+    },
+    {
+      "second": 14,
+      "at": "2026-10-09T15:04:13.230496876Z",
+      "totalRequests": 739,
+      "requestsPerSecond": 23.00380614075263,
+      "p50Ms": 128.114688,
+      "p95Ms": 1218.43712,
+      "p99Ms": 1496.30976,
+      "statusCounts": {
+        "201": 739
+      },
+      "outcomeCounts": {
+        "CONFIRMED": 688,
+        "UNKNOWN": 51
+      },
+      "finalizeRetries": 861,
+      "unknownFallbacks": 51,
+      "hikariActive": 10,
+      "hikariIdle": 0,
+      "hikariPending": 11
+    },
+    {
+      "second": 15,
+      "at": "2026-10-09T15:04:14.262708877Z",
+      "totalRequests": 770,
+      "requestsPerSecond": 29.971453389504635,
+      "p50Ms": 133.750784,
+      "p95Ms": 1271.914496,
+      "p99Ms": 1561.321472,
+      "statusCounts": {
+        "201": 770
+      },
+      "outcomeCounts": {
+        "CONFIRMED": 716,
+        "UNKNOWN": 54
+      },
+      "finalizeRetries": 892,
+      "unknownFallbacks": 54,
+      "hikariActive": 10,
+      "hikariIdle": 0,
+      "hikariPending": 7
+    },
+    {
+      "second": 16,
+      "at": "2026-10-09T15:04:15.233138044Z",
+      "totalRequests": 773,
+      "requestsPerSecond": 3.1027247504076163,
+      "p50Ms": 134.47168,
+      "p95Ms": 1275.060224,
+      "p99Ms": 1591.730176,
+      "statusCounts": {
+        "201": 773
+      },
+      "outcomeCounts": {
+        "CONFIRMED": 718,
+        "UNKNOWN": 55
+      },
+      "finalizeRetries": 897,
+      "unknownFallbacks": 55,
+      "hikariActive": 10,
+      "hikariIdle": 0,
+      "hikariPending": 11
+    },
+    {
+      "second": 17,
+      "at": "2026-10-09T15:04:16.227723128Z",
+      "totalRequests": 884,
+      "requestsPerSecond": 111.34628695242202,
+      "p50Ms": 124.57984,
+      "p95Ms": 1277.161472,
+      "p99Ms": 1561.325568,
+      "statusCounts": {
+        "201": 884
+      },
+      "outcomeCounts": {
+        "CONFIRMED": 828,
+        "UNKNOWN": 56
+      },
+      "finalizeRetries": 992,
+      "unknownFallbacks": 56,
+      "hikariActive": 10,
+      "hikariIdle": 0,
+      "hikariPending": 1
+    },
+    {
+      "second": 18,
+      "at": "2026-10-09T15:04:17.225823420Z",
+      "totalRequests": 973,
+      "requestsPerSecond": 88.99332176314826,
+      "p50Ms": 123.400192,
+      "p95Ms": 1267.724288,
+      "p99Ms": 1558.17984,
+      "statusCounts": {
+        "201": 973
+      },
+      "outcomeCounts": {
+        "CONFIRMED": 913,
+        "UNKNOWN": 60
+      },
+      "finalizeRetries": 1103,
+      "unknownFallbacks": 60,
+      "hikariActive": 6,
+      "hikariIdle": 4,
+      "hikariPending": 0
+    },
+    {
+      "second": 19,
+      "at": "2026-10-09T15:04:18.232887629Z",
+      "totalRequests": 1039,
+      "requestsPerSecond": 65.94298398153198,
+      "p50Ms": 123.990016,
+      "p95Ms": 1250.947072,
+      "p99Ms": 1538.256896,
+      "statusCounts": {
+        "201": 1041
+      },
+      "outcomeCounts": {
+        "CONFIRMED": 978,
+        "UNKNOWN": 63
+      },
+      "finalizeRetries": 1183,
+      "unknownFallbacks": 63,
+      "hikariActive": 7,
+      "hikariIdle": 3,
+      "hikariPending": 0
+    },
+    {
+      "second": 20,
+      "at": "2026-10-09T15:04:19.241244963Z",
+      "totalRequests": 1122,
+      "requestsPerSecond": 82.45696588087817,
+      "p50Ms": 123.400192,
+      "p95Ms": 1244.655616,
+      "p99Ms": 1506.799616,
+      "statusCounts": {
+        "201": 1122
+      },
+      "outcomeCounts": {
+        "CONFIRMED": 1052,
+        "UNKNOWN": 70
+      },
+      "finalizeRetries": 1267,
+      "unknownFallbacks": 70,
+      "hikariActive": 10,
+      "hikariIdle": 0,
+      "hikariPending": 1
+    },
+    {
+      "second": 21,
+      "at": "2026-10-09T15:04:20.225606713Z",
+      "totalRequests": 1222,
+      "requestsPerSecond": 100.77391423534448,
+      "p50Ms": 116.06016,
+      "p95Ms": 1223.684096,
+      "p99Ms": 1496.313856,
+      "statusCounts": {
+        "201": 1222
+      },
+      "outcomeCounts": {
+        "CONFIRMED": 1147,
+        "UNKNOWN": 75
+      },
+      "finalizeRetries": 1362,
+      "unknownFallbacks": 75,
+      "hikariActive": 6,
+      "hikariIdle": 4,
+      "hikariPending": 0
+    },
+    {
+      "second": 22,
+      "at": "2026-10-09T15:04:21.226288422Z",
+      "totalRequests": 1324,
+      "requestsPerSecond": 101.96722171887347,
+      "p50Ms": 111.734784,
+      "p95Ms": 1142.943744,
+      "p99Ms": 1473.245184,
+      "statusCounts": {
+        "201": 1324
+      },
+      "outcomeCounts": {
+        "CONFIRMED": 1248,
+        "UNKNOWN": 76
+      },
+      "finalizeRetries": 1448,
+      "unknownFallbacks": 76,
+      "hikariActive": 10,
+      "hikariIdle": 0,
+      "hikariPending": 0
+    },
+    {
+      "second": 23,
+      "at": "2026-10-09T15:04:22.226165297Z",
+      "totalRequests": 1421,
+      "requestsPerSecond": 97.02493133230529,
+      "p50Ms": 107.999232,
+      "p95Ms": 1105.195008,
+      "p99Ms": 1457.516544,
+      "statusCounts": {
+        "201": 1421
+      },
+      "outcomeCounts": {
+        "CONFIRMED": 1344,
+        "UNKNOWN": 77
+      },
+      "finalizeRetries": 1546,
+      "unknownFallbacks": 78,
+      "hikariActive": 4,
+      "hikariIdle": 6,
+      "hikariPending": 0
+    },
+    {
+      "second": 24,
+      "at": "2026-10-09T15:04:23.227777214Z",
+      "totalRequests": 1423,
+      "requestsPerSecond": 1.9991801681999037,
+      "p50Ms": 108.130304,
+      "p95Ms": 1105.195008,
+      "p99Ms": 1457.516544,
+      "statusCounts": {
+        "201": 1423
+      },
+      "outcomeCounts": {
+        "CONFIRMED": 1345,
+        "UNKNOWN": 78
+      },
+      "finalizeRetries": 1547,
+      "unknownFallbacks": 78,
+      "hikariActive": 10,
+      "hikariIdle": 0,
+      "hikariPending": 12
+    },
+    {
+      "second": 25,
+      "at": "2026-10-09T15:04:24.312098965Z",
+      "totalRequests": 1485,
+      "requestsPerSecond": 61.40309030483066,
+      "p50Ms": 110.555136,
+      "p95Ms": 1155.526656,
+      "p99Ms": 1457.516544,
+      "statusCounts": {
+        "201": 1488
+      },
+      "outcomeCounts": {
+        "CONFIRMED": 1405,
+        "UNKNOWN": 83
+      },
+      "finalizeRetries": 1627,
+      "unknownFallbacks": 83,
+      "hikariActive": 9,
+      "hikariIdle": 1,
+      "hikariPending": 3
+    },
+    {
+      "second": 26,
+      "at": "2026-10-09T15:04:25.229336299Z",
+      "totalRequests": 1558,
+      "requestsPerSecond": 73.486240079043,
+      "p50Ms": 111.734784,
+      "p95Ms": 1142.943744,
+      "p99Ms": 1453.32224,
+      "statusCounts": {
+        "201": 1558
+      },
+      "outcomeCounts": {
+        "CONFIRMED": 1469,
+        "UNKNOWN": 89
+      },
+      "finalizeRetries": 1696,
+      "unknownFallbacks": 89,
+      "hikariActive": 10,
+      "hikariIdle": 0,
+      "hikariPending": 0
+    },
+    {
+      "second": 27,
+      "at": "2026-10-09T15:04:26.225402174Z",
+      "totalRequests": 1695,
+      "requestsPerSecond": 137.4817358649892,
+      "p50Ms": 101.052416,
+      "p95Ms": 1105.195008,
+      "p99Ms": 1429.204992,
+      "statusCounts": {
+        "201": 1695
+      },
+      "outcomeCounts": {
+        "CONFIRMED": 1605,
+        "UNKNOWN": 90
+      },
+      "finalizeRetries": 1772,
+      "unknownFallbacks": 90,
+      "hikariActive": 2,
+      "hikariIdle": 8,
+      "hikariPending": 0
+    },
+    {
+      "second": 28,
+      "at": "2026-10-09T15:04:27.224935633Z",
+      "totalRequests": 1844,
+      "requestsPerSecond": 148.99405260440219,
+      "p50Ms": 89.780224,
+      "p95Ms": 1081.07776,
+      "p99Ms": 1423.962112,
+      "statusCounts": {
+        "201": 1844
+      },
+      "outcomeCounts": {
+        "CONFIRMED": 1754,
+        "UNKNOWN": 90
+      },
+      "finalizeRetries": 1836,
+      "unknownFallbacks": 90,
+      "hikariActive": 3,
+      "hikariIdle": 7,
+      "hikariPending": 0
+    },
+    {
+      "second": 29,
+      "at": "2026-10-09T15:04:28.228676300Z",
+      "totalRequests": 1928,
+      "requestsPerSecond": 83.72611095952365,
+      "p50Ms": 84.93056,
+      "p95Ms": 1067.446272,
+      "p99Ms": 1394.601984,
+      "statusCounts": {
+        "201": 1928
+      },
+      "outcomeCounts": {
+        "CONFIRMED": 1837,
+        "UNKNOWN": 91
+      },
+      "finalizeRetries": 1894,
+      "unknownFallbacks": 91,
+      "hikariActive": 10,
+      "hikariIdle": 0,
+      "hikariPending": 12
+    },
+    {
+      "second": 30,
+      "at": "2026-10-09T15:04:29.225555801Z",
+      "totalRequests": 1928,
+      "requestsPerSecond": 0,
+      "p50Ms": 84.93056,
+      "p95Ms": 1067.446272,
+      "p99Ms": 1394.601984,
+      "statusCounts": {
+        "201": 1928
+      },
+      "outcomeCounts": {
+        "CONFIRMED": 1837,
+        "UNKNOWN": 91
+      },
+      "finalizeRetries": 1900,
+      "unknownFallbacks": 91,
+      "hikariActive": 10,
+      "hikariIdle": 0,
+      "hikariPending": 13
+    },
+    {
+      "second": 31,
+      "at": "2026-10-09T15:04:30.225112968Z",
+      "totalRequests": 1948,
+      "requestsPerSecond": 20.005207195391304,
+      "p50Ms": 86.89664,
+      "p95Ms": 1142.943744,
+      "p99Ms": 2085.613568,
+      "statusCounts": {
+        "201": 1948
+      },
+      "outcomeCounts": {
+        "CONFIRMED": 1857,
+        "UNKNOWN": 91
+      },
+      "finalizeRetries": 1924,
+      "unknownFallbacks": 91,
+      "hikariActive": 0,
+      "hikariIdle": 10,
+      "hikariPending": 0
+    },
+    {
+      "second": 32,
+      "at": "2026-10-09T15:04:30.295738718Z",
+      "totalRequests": 1948,
+      "requestsPerSecond": 0,
+      "p50Ms": 86.89664,
+      "p95Ms": 1142.943744,
+      "p99Ms": 2085.613568,
+      "statusCounts": {
+        "201": 1948
+      },
+      "outcomeCounts": {
+        "CONFIRMED": 1857,
+        "UNKNOWN": 91
+      },
+      "finalizeRetries": 1924,
+      "unknownFallbacks": 91,
+      "hikariActive": 0,
+      "hikariIdle": 10,
+      "hikariPending": 0
+    }
+  ],
+  "summary": {
+    "totalRequests": 1948,
+    "durationSeconds": 40.728,
+    "averageRequestsPerSecond": 47.829503044588485,
+    "p50Ms": 87.22432,
+    "p95Ms": 1142.943744,
+    "p99Ms": 2085.613568,
+    "maxMs": 2760.78896,
+    "statusCounts": {
+      "201": 1948
+    },
+    "outcomeCounts": {
+      "CONFIRMED": 1857,
+      "UNKNOWN": 91
+    },
+    "finalizeRetries": 1924,
+    "unknownFallbacks": 91,
+    "peakHikariActive": 10,
+    "peakHikariPending": 13
+  },
+  "invariants": [
+    {
+      "id": "POOL_TOTAL_UNCHANGED",
+      "title": "The pool's total balance is unchanged",
+      "status": "PASS",
+      "detail": "total 6000000.0000 before and after: money moved within the pool, none created or destroyed"
+    },
+    {
+      "id": "DUPLICATE_KEY_MOVED_ONCE",
+      "title": "The duplicate-key pair moved by exactly one settlement's amount",
+      "status": "SKIPPED",
+      "detail": "not exercised by the FRESH_SETTLEMENTS scenario"
+    },
+    {
+      "id": "BALANCES_MATCH_ENTRIES",
+      "title": "Every touched account's balance equals the sum of its ledger entries",
+      "status": "PASS",
+      "detail": "10 accounts checked with LedgerConsistencyService"
+    },
+    {
+      "id": "NO_STALE_PENDING",
+      "title": "No settlement is still PENDING beyond the grace period",
+      "status": "PASS",
+      "detail": "0 stale PENDING (grace 20s)"
+    },
+    {
+      "id": "OUTBOX_DRAINED",
+      "title": "The outbox drains to zero pending",
+      "status": "PASS",
+      "detail": "0 unpublished outbox rows"
+    },
+    {
+      "id": "READ_MODEL_MATCHES",
+      "title": "The read model has a row for every settlement",
+      "status": "PASS",
+      "detail": "settlements and read-model rows are equal in number"
+    }
+  ],
+  "verdict": "PASS",
+  "stranded": {
+    "unknownOutcomes": 91,
+    "explanation": "These settlements ended UNKNOWN with no external reference (an injected fault, or finalize retries exhausted). Reconciliation only loads settlements that have a reference, so nothing will resolve them. Known gap 1. Expected under fault injection, not an invariant failure."
+  },
+  "k6Equivalent": "k6 run load/settlement-load-test.js   # scenario fresh_settlements (constant-vus, exec freshSettlement); the lab ran 20 VUs for 30s, at most 5000 requests, amount 1. Edit the scenario's vus/duration in the script's options to match.",
+  "note": "Numbers measured by the lab runner (JVM client on loopback, same host as the app). They will differ from k6; quote the k6 numbers when comparing against a real deployment. See load/README.md."
+}

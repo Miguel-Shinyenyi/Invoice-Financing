@@ -1,0 +1,37 @@
+# Self-signed CA bootstrap: no public domain points at this server yet, so Let's Encrypt
+# (which needs a resolvable hostname) isn't an option. This sets up a proper two-step
+# self-signed CA instead of one throwaway cert, so every service on this cluster shares one
+# root of trust -- swapping to a real Let's Encrypt ClusterIssuer later (once there's a domain)
+# only means changing the `issuerRef` on each Certificate below, not re-architecting this.
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned-bootstrap
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: invoice-financing-ca
+  namespace: cert-manager
+spec:
+  isCA: true
+  commonName: invoice-financing-ca
+  secretName: invoice-financing-ca-secret
+  duration: 87600h # 10 years
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    name: selfsigned-bootstrap
+    kind: ClusterIssuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: invoice-financing-ca-issuer
+spec:
+  ca:
+    secretName: invoice-financing-ca-secret

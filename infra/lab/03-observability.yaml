@@ -1,0 +1,206 @@
+# Jaeger (bounded in-memory traces), Prometheus and Alertmanager. The alert rules come from the ONE canonical file,
+# infra/monitoring/alert-rules.yml, loaded into the ConfigMap `lab-alert-rules` by the command in infra/lab/README.md.
+# An init container shortens only the `for:` durations (1m -> 15s, 5m -> 30s), exactly as docker-compose.lab.yml does.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lab-prometheus-config
+  namespace: settlement-lab
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 5s
+      evaluation_interval: 5s
+    alerting:
+      alertmanagers:
+        - static_configs:
+            - targets: ["alertmanager:9093"]
+    rule_files:
+      - /rules/rules.yml
+    scrape_configs:
+      - job_name: prometheus
+        static_configs:
+          - targets: ["localhost:9090"]
+      - job_name: backend
+        metrics_path: /actuator/prometheus
+        static_configs:
+          - targets: ["backend:8080"]
+      - job_name: ml-service
+        metrics_path: /metrics
+        static_configs:
+          - targets: ["ml:8000"]
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lab-alertmanager-config
+  namespace: settlement-lab
+data:
+  alertmanager.yml: |
+    route:
+      receiver: default
+    receivers:
+      - name: default
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jaeger
+  namespace: settlement-lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jaeger
+  template:
+    metadata:
+      labels:
+        app: jaeger
+    spec:
+      containers:
+        - name: jaeger
+          image: jaegertracing/all-in-one:1.72.0
+          env:
+            - { name: SPAN_STORAGE_TYPE, value: memory }
+            - { name: COLLECTOR_OTLP_ENABLED, value: "true" }
+            - { name: MEMORY_MAX_TRACES, value: "2000" }
+          ports:
+            - { containerPort: 4317, name: otlp-grpc }
+            - { containerPort: 16686, name: ui }
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 300m
+              memory: 384Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger
+  namespace: settlement-lab
+spec:
+  selector:
+    app: jaeger
+  ports:
+    - { name: otlp-grpc, port: 4317, targetPort: 4317 }
+    - { name: ui, port: 16686, targetPort: 16686 }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: settlement-lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      initContainers:
+        - name: shorten-for-durations
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              sed -e 's/for: 1m/for: 15s/' -e 's/for: 5m/for: 30s/' /canonical/alert-rules.yml > /rules/rules.yml
+          volumeMounts:
+            - { name: canonical-rules, mountPath: /canonical }
+            - { name: rules, mountPath: /rules }
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+            limits: { cpu: 50m, memory: 32Mi }
+      containers:
+        - name: prometheus
+          image: prom/prometheus:v3.13.1
+          args:
+            - --config.file=/etc/prometheus/prometheus.yml
+            - --storage.tsdb.path=/prometheus
+            - --storage.tsdb.retention.time=1h
+          ports:
+            - containerPort: 9090
+          volumeMounts:
+            - { name: config, mountPath: /etc/prometheus }
+            - { name: rules, mountPath: /rules }
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi
+      volumes:
+        - name: config
+          configMap:
+            name: lab-prometheus-config
+        - name: canonical-rules
+          configMap:
+            name: lab-alert-rules
+        - name: rules
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: settlement-lab
+spec:
+  selector:
+    app: prometheus
+  ports:
+    - port: 9090
+      targetPort: 9090
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alertmanager
+  namespace: settlement-lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alertmanager
+  template:
+    metadata:
+      labels:
+        app: alertmanager
+    spec:
+      containers:
+        - name: alertmanager
+          image: prom/alertmanager:v0.33.1
+          args:
+            - --config.file=/etc/alertmanager/alertmanager.yml
+          ports:
+            - containerPort: 9093
+          volumeMounts:
+            - { name: config, mountPath: /etc/alertmanager }
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 96Mi
+      volumes:
+        - name: config
+          configMap:
+            name: lab-alertmanager-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alertmanager
+  namespace: settlement-lab
+spec:
+  selector:
+    app: alertmanager
+  ports:
+    - port: 9093
+      targetPort: 9093

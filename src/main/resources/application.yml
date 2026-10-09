@@ -1,0 +1,65 @@
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      show-details: never
+
+spring:
+  application:
+    name: settlement-engine
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+  datasource:
+    url: ${SETTLEMENT_DB_URL:jdbc:postgresql://localhost:5432/settlement_engine}
+    username: ${SETTLEMENT_DB_USER:settlement_engine}
+    password: ${SETTLEMENT_DB_PASSWORD:settlement_engine}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
+    producer:
+      acks: all
+      properties:
+        enable.idempotence: true
+    consumer:
+      group-id: settlement-engine-read-model
+      auto-offset-reset: earliest
+      properties:
+        spring.json.trusted.packages: com.settlementengine.core.events
+
+settlement-engine:
+  jwt:
+    secret: ${JWT_SECRET:dev-only-insecure-secret-change-me-0123456789abcdef}
+    access-token-ttl-seconds: ${JWT_ACCESS_TOKEN_TTL_SECONDS:900}
+  refresh-token:
+    ttl-days: ${REFRESH_TOKEN_TTL_DAYS:30}
+  outbox:
+    poll-fixed-delay-ms: ${OUTBOX_POLL_FIXED_DELAY_MS:500}
+    batch-size: ${OUTBOX_BATCH_SIZE:100}
+  reconciliation:
+    grace-period-seconds: ${RECONCILIATION_GRACE_PERIOD_SECONDS:300}
+    scheduled-fixed-delay-ms: ${RECONCILIATION_SCHEDULED_FIXED_DELAY_MS:60000}
+    stale-pending-grace-period-seconds: ${RECONCILIATION_STALE_PENDING_GRACE_PERIOD_SECONDS:300}
+  invoice-financing:
+    advance-rate-percent: ${INVOICE_ADVANCE_RATE_PERCENT:80}
+    fee-rate-percent: ${INVOICE_FEE_RATE_PERCENT:2}
+    # No default: this must be a real ledger_accounts.id seeded ahead of time. The app fails fast
+    # at startup with a clear "could not resolve placeholder" error if it's not set, rather than
+    # silently financing invoices from a nonexistent account.
+    platform-account-id: ${INVOICE_PLATFORM_ACCOUNT_ID}
+    repayment-grace-period-days: ${INVOICE_REPAYMENT_GRACE_PERIOD_DAYS:3}
+    scheduled-fixed-delay-ms: ${INVOICE_REPAYMENT_SCHEDULED_FIXED_DELAY_MS:60000}
+  fraud-detection:
+    # Advisory only: if this service is unreachable or times out, HttpFraudDetectionClient fails
+    # open (allows financing to proceed) rather than blocking on an optional dependency.
+    base-url: ${FRAUD_DETECTION_BASE_URL:http://localhost:8000}
+    timeout-ms: ${FRAUD_DETECTION_TIMEOUT_MS:2000}

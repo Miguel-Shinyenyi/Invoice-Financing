@@ -1,0 +1,74 @@
+# Sandbox profile for the public Lab. Time is compressed so a visitor sees whole reconciliation and
+# sweep cycles in about a minute, using the real config properties that already exist. Never use
+# this profile against the shared staging database: LabStartupGuardConfig refuses a datasource
+# whose database name does not end in _lab.
+spring:
+  datasource:
+    url: ${LAB_DB_URL:jdbc:postgresql://localhost:5432/settlement_engine_lab}
+    username: ${LAB_DB_USER:settlement_engine}
+    password: ${LAB_DB_PASSWORD:settlement_engine}
+
+  flyway:
+    # Lab-only schema additions (V100+). Never part of the default or staging migration set.
+    locations: classpath:db/migration,classpath:db/lab-migration
+
+management:
+  metrics:
+    distribution:
+      # Client-side percentiles for /lab/metrics, and histogram buckets so the sandbox Prometheus can compute
+      # the same histogram_quantile the real Grafana p95 panel uses.
+      percentiles:
+        http.server.requests: 0.5,0.95,0.99
+      percentiles-histogram:
+        http.server.requests: true
+
+server:
+  error:
+    include-stacktrace: never
+    include-message: never
+    include-exception: false
+
+settlement-engine:
+  demo:
+    enabled: ${LAB_ENABLED:true}
+    read-only: ${LAB_READ_ONLY:false}
+    trust-forwarded-for: ${LAB_TRUST_FORWARDED_FOR:false}
+    forbidden-hosts: 107.155.122.29
+    # 30 per minute per IP by default; raised only for the browser end-to-end suite, which is one visitor doing a lot
+    requests-per-minute-per-ip: ${LAB_REQUESTS_PER_MINUTE_PER_IP:30}
+    auto-reset-minutes: ${LAB_AUTO_RESET_MINUTES:30}
+    reset-cooldown-seconds: 60
+    load:
+      max-virtual-users: 20
+      max-duration-seconds: 30
+      max-total-requests: 5000
+      cooldown-seconds: 10
+      min-amount: 0.01
+      max-amount: 100.00
+    # Sidecars the lab wrappers read (fixed base URLs; visitor input never selects one).
+    upstreams:
+      jaeger-url: ${LAB_JAEGER_URL:http://jaeger:16686}
+      prometheus-url: ${LAB_PROMETHEUS_URL:http://prometheus:9090}
+      alertmanager-url: ${LAB_ALERTMANAGER_URL:http://alertmanager:9093}
+      ml-url: ${FRAUD_DETECTION_BASE_URL:http://localhost:8000}
+      alert-rules-file: ${LAB_ALERT_RULES_FILE:/lab/monitoring/alert-rules.yml}
+      ml-fault-cooldown-seconds: 30
+    sse:
+      max-per-ip: 3
+      max-total: 50
+      idle-timeout-minutes: 5
+  # No default on purpose: the demo profile fails fast at startup if this is missing, and the
+  # compose file sets a sandbox-only value. It is never the staging secret.
+  jwt:
+    secret: ${LAB_JWT_SECRET}
+  outbox:
+    poll-fixed-delay-ms: 200
+  reconciliation:
+    scheduled-fixed-delay-ms: 5000
+    grace-period-seconds: 20
+    stale-pending-grace-period-seconds: 20
+  invoice-financing:
+    platform-account-id: 00000000-0000-0000-0000-000000000001
+    scheduled-fixed-delay-ms: 5000
+  fraud-detection:
+    base-url: ${FRAUD_DETECTION_BASE_URL:http://localhost:8000}

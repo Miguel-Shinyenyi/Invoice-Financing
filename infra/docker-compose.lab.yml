@@ -1,0 +1,132 @@
+# The Lab sandbox: a stack separate from staging. One command starts everything:
+#   docker compose -f infra/docker-compose.lab.yml up --build
+# Then open http://localhost:3000/app/lab
+#
+# Nothing here touches the shared staging server: the database is its own (settlement_engine_lab), and the backend's
+# startup guard refuses any database whose name does not end in _lab.
+name: settlement-lab
+
+x-sandbox-secret: &sandbox_jwt_secret "sandbox-only-jwt-secret-not-used-anywhere-else-0123456789abcdef"
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: settlement_engine_lab
+      POSTGRES_USER: settlement_engine
+      POSTGRES_PASSWORD: settlement_engine
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U settlement_engine -d settlement_engine_lab"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    mem_limit: 384m
+
+  kafka:
+    image: apache/kafka:3.8.0
+    environment:
+      CLUSTER_ID: Uz0aojrmT1G9xgr4ZUQ1eQ
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_HEAP_OPTS: "-Xmx384m -Xms256m"
+    mem_limit: 640m
+
+  ml:
+    build: ../ml-service
+    environment:
+      ML_LAB: "1"
+      OTEL_SERVICE_NAME: fraud-detection-ml
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_METRICS_EXPORTER: none
+      OTEL_LOGS_EXPORTER: none
+      OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED: "false"
+      # puts the trace id on each log record so the merged log stream can link to the trace
+      OTEL_PYTHON_LOG_CORRELATION: "true"
+    mem_limit: 256m
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.72.0
+    environment:
+      SPAN_STORAGE_TYPE: memory
+      COLLECTOR_OTLP_ENABLED: "true"
+      MEMORY_MAX_TRACES: "2000"
+    mem_limit: 384m
+
+  prometheus:
+    image: prom/prometheus:v3.13.1
+    entrypoint: ["/bin/sh", "-c"]
+    # The shared rules file, with only the `for:` durations shortened. Same expressions, labels and annotations.
+    command:
+      - >-
+        sed -e 's/for: 1m/for: 15s/' -e 's/for: 5m/for: 30s/' /lab/monitoring/alert-rules.yml > /tmp/rules.yml &&
+        exec /bin/prometheus --config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/prometheus
+        --storage.tsdb.retention.time=1h
+    volumes:
+      - ./lab/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alert-rules.yml:/lab/monitoring/alert-rules.yml:ro
+    mem_limit: 256m
+
+  alertmanager:
+    image: prom/alertmanager:v0.33.1
+    command: ["--config.file=/etc/alertmanager/alertmanager.yml"]
+    volumes:
+      - ./lab/monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    mem_limit: 96m
+
+  backend:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    environment:
+      SPRING_PROFILES_ACTIVE: demo
+      LAB_DB_URL: jdbc:postgresql://postgres:5432/settlement_engine_lab
+      LAB_JWT_SECRET: *sandbox_jwt_secret
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      FRAUD_DETECTION_BASE_URL: http://ml:8000
+      # Only the frontend can reach this backend, so its X-Forwarded-For (the visitor's address) can be trusted.
+      LAB_TRUST_FORWARDED_FOR: "true"
+      # 30 per minute per visitor unless overridden (the e2e suite sets LAB_REQUESTS_PER_MINUTE_PER_IP=300)
+      LAB_REQUESTS_PER_MINUTE_PER_IP: ${LAB_REQUESTS_PER_MINUTE_PER_IP:-30}
+      LAB_ALERT_RULES_FILE: /lab/monitoring/alert-rules.yml
+      JAVA_TOOL_OPTIONS: "-Xmx512m"
+      OTEL_SERVICE_NAME: settlement-engine-backend
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_METRICS_EXPORTER: none
+      OTEL_LOGS_EXPORTER: none
+      OTEL_INSTRUMENTATION_HTTP_SERVER_CAPTURE_REQUEST_HEADERS: X-Request-Id
+    volumes:
+      - ./monitoring/alert-rules.yml:/lab/monitoring/alert-rules.yml:ro
+    ports:
+      # Swagger UI for the sandbox (springdoc). Bound to this machine only.
+      - "127.0.0.1:8080:8080"
+    mem_limit: 900m
+
+  frontend:
+    build: ../frontend
+    depends_on:
+      - backend
+    environment:
+      LAB_BACKEND_URL: http://backend:8080
+      LAB_SWAGGER_URL: http://localhost:8080/swagger-ui/index.html
+      # The real-data pages (/settlements, ...) also talk to the sandbox backend here, so the sandbox personas can log in.
+      BACKEND_URL: http://backend:8080
+    ports:
+      - "3000:3000"
+    mem_limit: 256m
