@@ -1,3 +1,4 @@
+import os
 from typing import List
 from uuid import UUID
 
@@ -11,6 +12,13 @@ configure_json_logging()
 
 app = FastAPI(title="Fraud Detection Service")
 install_request_id_middleware(app)
+
+# Public-sandbox support (log buffer + time-boxed fault). Off unless ML_LAB=1: without the flag these routes do not exist.
+if os.getenv("ML_LAB") == "1":
+    from lab_support import install_lab
+
+    install_lab(app)
+
 Instrumentator().instrument(app).expose(app)
 
 
