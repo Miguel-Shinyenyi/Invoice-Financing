@@ -55,3 +55,23 @@ body {
     @apply rounded-none border-2 border-black px-3 py-1 text-sm font-bold shadow-brutal-sm transition-all hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none;
   }
 }
+
+/* Lab additions: nothing here animates on its own. A highlight is applied for a moment only when a real
+   backend event arrives (see .lab-flash and its use in SystemMap), and is switched off for reduced motion. */
+@layer components {
+  .lab-flash {
+    animation: lab-flash 900ms ease-out 1;
+  }
+}
+
+@keyframes lab-flash {
+  from { background-color: var(--color-neo-yellow); }
+  to { background-color: transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lab-flash { animation: none; outline: 3px solid var(--color-neo-yellow); }
+  .neo-btn, .neo-chip { transition: none; }
+}
+
+html, body { max-width: 100%; overflow-x: clip; }

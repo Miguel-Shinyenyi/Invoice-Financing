@@ -130,6 +130,10 @@ Built (Phase 5), as its own `InvoiceRepaymentService` — parallel to `Reconcili
 | 2026-09-25 | Live check on `GET /accounts/{id}` (before the ownership check) records a `ledger_mismatches` row and still returns `500`; resolution is manual, audited, and doesn't touch the balance | Same manual-review policy as external reconciliation, applied to an internally detected discrepancy: never hand a caller an untrusted balance, never auto-correct money without a human. Checking before ownership means a broken account is recorded even when the caller couldn't have seen it |
 | 2026-09-25 | `ledger_mismatches` is a dedicated sibling table, not a nullable `account_id` FK on `reconciliation_mismatches` | Different subject (account vs. settlement) and different detection (live read vs. scheduled run with a `run_id`); one table would need nullable FKs whose valid combinations only a check constraint could explain. Resolves, for the ledger case, the same fork the invoice-mismatch open question poses; that question itself stays open |
 
+## Where the Lab demonstrates this
+
+`docs/lab.md` describes a public sandbox that runs this engine with compressed time. Each known gap below has a screen: UNKNOWN with no `externalRef` (the stale-pending sweep and gateway-exception bullets) on `/lab/reconciliation` as "Stranded UNKNOWN"; resolving without correcting data, as the reopen loop on `/lab/chaos` and `/lab/reconciliation`; `REVERSED` having no code path, in the state machine on `/lab`; the in-memory mock stores, in the reset behaviour; and nothing alerting on a mismatch, as the "Unseen mismatches" count, the zero-consumer `reconciliation.mismatch_found` topic on `/lab/events`, and the alert board's fixed row. The Lab shows the gaps as they are; it does not fix them.
+
 ## Open questions
 
 - Fuzzy matching (amount + date + account) for external systems that don't return a clean reference. Not built — revisit when a real external system integration actually needs it.

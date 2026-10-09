@@ -2,9 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { ACCESS_TOKEN_COOKIE, decodeAccessToken, type AccessTokenClaims } from "./auth";
 
-// Server-side only: the backend's ClusterIP Service DNS name when deployed in-cluster
-// (infra/k8s/14-frontend.yaml sets BACKEND_URL accordingly), localhost for local dev.
-const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:8080";
+import { BACKEND_URL } from "./config";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {

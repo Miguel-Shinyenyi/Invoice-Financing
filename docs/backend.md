@@ -56,6 +56,19 @@ All of these require `ADMIN` or `SUPPORT` — unlike the settlement/account `GET
 - `GET /invoices/{id}` - any authenticated role, row-level restricted like accounts/settlements: a `READ_ONLY` user only sees invoices whose `businessAccountId` resolves to an account they own. Returns the invoice plus its advance (amount advanced, fee, disbursed/repaid settlement ids, status) if one exists.
 - `GET /invoices?status=&page=&size=` - paginated, optionally filtered by status. No CQRS read model needed at this scale, so this is a direct `InvoiceRepository` query — same nullable-`:ownerId`-parameter pattern as the settlements list, joined against `LedgerAccount` via `businessAccountId`. Built for Phase 8.
 
+### Lab endpoints (demo profile only)
+
+Exist only under `SPRING_PROFILES_ACTIVE=demo` with `settlement-engine.demo.enabled=true` (see `lab.md`). All are public (no login), served by an earlier `/lab/**` filter chain; mutating ones sit behind a kill switch (`read-only=true` gives 503) and a per-IP token bucket (429). Errors reuse `ErrorResponse` and never carry a stack trace.
+
+- `GET /lab/status` caps, compressed timings, reset times, fault boundaries. `GET /lab/health` status, latency and last check for backend, ml-service, Postgres, Kafka, Jaeger, Prometheus, Alertmanager. `GET /lab/scenarios` the catalog from `lab/seed/scenarios.json`. `POST /lab/reset` once a minute.
+- Settlements: `POST /lab/settlements` and `/retry` (real `SettlementService`, optional gateway fault, ordered steps from real rows and log events), `POST /lab/settlements/orphan`, `GET /lab/settlements/{id}/inspect`.
+- Chaos: `POST /lab/external/{ref}/forget|corrupt`, `POST /lab/accounts/{id}/hand-edit-balance|repair-balance`, `POST /lab/reconciliation/run`, `POST /lab/sweep/run`, `POST /lab/ml/fault` (at most 60 s, auto-recovers).
+- Reconciliation views the real API lacks: `GET /lab/reconciliation/runs|mismatches?status=|ledger-mismatches?status=|stranded|summary`, `POST /lab/reconciliation/seen`.
+- Personas: `GET /lab/personas`, `POST /lab/personas/{role}/token` (a real JWT for the sandbox ADMIN, SUPPORT or READ_ONLY user).
+- Invoices: `GET /lab/invoices/scenarios`, `POST /lab/invoices/demo`, `/{id}/mark-paid`, `/repayment-run`.
+- Load: `POST /lab/load/start`, `GET /lab/load/{id}` (`?download=true`), `/{id}/stream` (SSE), `POST /lab/load/{id}/cancel`, `GET /lab/load/history`.
+- Observability: `GET /lab/logs` (+ `/stream`), `/lab/metrics`, `/lab/events` (+ `POST /lab/events/out-of-order`), `/lab/kafka` (+ `/topics/{topic}/messages`), `/lab/traces`, `/lab/traces/{traceId}`, `/lab/alerts`, `/lab/audit`, `/lab/data/{table}`, `/lab/state-machines`, `/lab/requests`, `/lab/correlate?requestId=`.
+
 ## Decisions log
 
 | Date | Decision | Reason |
@@ -80,6 +93,9 @@ All of these require `ADMIN` or `SUPPORT` — unlike the settlement/account `GET
 | 2026-09-21 | The sweep finalizes stale-pending settlements as `UNKNOWN` via the existing `SettlementTransactions.finalizeSettlement`, reusing the exact semantics already used for a gateway exception or exhausted finalize retries | Keeps every path that resolves an uncertain settlement to `UNKNOWN` going through the one method that writes ledger entries (none, for `UNKNOWN`), completes the idempotency key, and publishes the outbox event — no new state-machine logic, same reasoning as reconciliation's own `UNKNOWN` auto-resolution (see `reconciliation.md`'s matching decision) |
 | 2026-09-25 | Ledger mismatch list/resolve endpoints live on `ReconciliationController`, not a new controller, and reuse `ResolveMismatchRequest`/`MismatchNotFoundException`/`MismatchAlreadyResolvedException` | Same manual-review policy applied to a different subject, so the same role gate, audit pattern and error contract; the request/exception types were already generic over an id and a reason (`MismatchNotFoundException`'s message was reworded from "No reconciliation mismatch" to "No mismatch" to fit both) |
 | 2026-09-25 | `LedgerInconsistencyException` maps to `500` in its own `GlobalExceptionHandler` group | It's not a client error: the request was valid, the system's own data is inconsistent. Grouping it with a 4xx would tell the caller to fix something they can't |
+
+| 2026-10-09 | `SettlementService` counts `settlement.finalize.retries` (each re-attempt) and `settlement.unknown.fallback` (each fall back to UNKNOWN) | Gives the load runner and Prometheus a measured view of deadlock contention instead of an inferred one |
+| 2026-10-09 | Lab endpoints, data browser and wrappers are read-only over fixed whitelists | See `lab.md` and `security.md`: tables, columns, Kafka topics, Jaeger and Prometheus paths come from fixed lists, never from the visitor |
 
 ## Open questions
 

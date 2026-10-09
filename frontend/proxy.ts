@@ -19,8 +19,9 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Public showcase page -- no auth either direction, unlike every other route here.
-  if (pathname === "/about") {
+  // Public pages -- no auth either direction, unlike every other route here. The Lab is public by decision;
+  // real staging data stays behind the login.
+  if (pathname === "/about" || pathname === "/lab" || pathname.startsWith("/lab/")) {
     return NextResponse.next();
   }
 
