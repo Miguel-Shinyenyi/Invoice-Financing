@@ -5,6 +5,8 @@ import com.settlementengine.core.gateway.GatewayResult;
 import com.settlementengine.core.gateway.MockExternalSystem;
 import com.settlementengine.core.gateway.SettlementExecutionRequest;
 import com.settlementengine.core.gateway.SettlementOutcome;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Primary;
 
@@ -19,6 +21,8 @@ import java.util.random.RandomGenerator;
 @LabComponent
 @Primary
 public class FaultInjectingGateway implements ExternalSettlementGateway {
+
+    private static final Logger log = LoggerFactory.getLogger(FaultInjectingGateway.class);
 
     private final MockExternalSystem delegate;
     private final LabOrphanedExternalRecords orphans;
@@ -41,19 +45,28 @@ public class FaultInjectingGateway implements ExternalSettlementGateway {
         LabFault fault = plan == null ? LabFault.NONE : plan.resolve(rng);
         switch (fault) {
             case REQUEST_LOST:
+                log.info("Gateway call: fault=REQUEST_LOST, request never reached the external system (threw before any record)");
                 throw new LabInjectedFaultException(fault);
             case RESPONSE_LOST: {
                 GatewayResult real = delegate.execute(request);
                 orphans.add(request.settlementId(), real.externalRef());
+                log.info("Gateway call: fault=RESPONSE_LOST, external system wrote {} then the response was lost", real.externalRef());
                 throw new LabInjectedFaultException(fault);
             }
             case DECLINED:
+                log.info("Gateway call: fault=DECLINED, external system answered FAILED");
                 return new GatewayResult(SettlementOutcome.FAILED, null);
-            case SLOW:
+            case SLOW: {
                 sleep(plan.slowMs());
-                return delegate.execute(request);
-            default:
-                return delegate.execute(request);
+                GatewayResult real = delegate.execute(request);
+                log.info("Gateway call: fault=SLOW (+{} ms), outcome={} ref={}", plan.slowMs(), real.outcome(), real.externalRef());
+                return real;
+            }
+            default: {
+                GatewayResult real = delegate.execute(request);
+                log.info("Gateway call: fault=NONE, outcome={} ref={}", real.outcome(), real.externalRef());
+                return real;
+            }
         }
     }
 

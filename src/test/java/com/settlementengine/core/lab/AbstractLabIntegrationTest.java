@@ -14,6 +14,8 @@ import org.testcontainers.kafka.KafkaContainer;
  */
 @SpringBootTest(properties = {
         "settlement-engine.demo.enabled=true",
+        // the per-IP limiter is covered by LabRateLimitIntegrationTest; here every call comes from 127.0.0.1
+        "settlement-engine.demo.requests-per-minute-per-ip=100000",
         "settlement-engine.jwt.secret=lab-test-only-secret-0123456789abcdef0123456789abcdef"
 })
 @ActiveProfiles({"test", "demo"})
