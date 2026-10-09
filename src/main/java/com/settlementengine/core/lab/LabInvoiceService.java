@@ -11,6 +11,8 @@ import com.settlementengine.core.invoicing.InvoiceStatus;
 import com.settlementengine.core.invoicing.MockInvoicePaymentSource;
 import com.settlementengine.core.repository.FraudAssessmentRepository;
 import com.settlementengine.core.repository.InvoiceRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -36,6 +38,8 @@ public class LabInvoiceService {
                                  int httpStatus, String error, Assessment assessment, Map<String, Object> inputsSent,
                                  Map<String, Object> advance, String invoiceStatus, List<String> setup, String requestId) {
     }
+
+    private static final Logger log = LoggerFactory.getLogger(LabInvoiceService.class);
 
     static final BigDecimal OPENING_BALANCE = new BigDecimal("100.00");
 
@@ -116,6 +120,13 @@ public class LabInvoiceService {
         int status = HttpStatus.OK.value();
         String error = null;
         Advance advance = null;
+        // One line carrying the invoice id (and, under the OpenTelemetry agent, the trace id), so traces can be found by invoice.
+        MDC.put("invoiceId", invoice.getId().toString());
+        try {
+            log.info("Lab invoice scenario {}: financing invoice {} (inputs {})", scenario, invoice.getId(), inputs);
+        } finally {
+            MDC.remove("invoiceId");
+        }
         try {
             advance = invoiceService.financeInvoice(invoice.getId(), UUID.randomUUID());
         } catch (RuntimeException ex) {
