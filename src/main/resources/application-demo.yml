@@ -34,7 +34,8 @@ settlement-engine:
     read-only: ${LAB_READ_ONLY:false}
     trust-forwarded-for: ${LAB_TRUST_FORWARDED_FOR:false}
     forbidden-hosts: 107.155.122.29
-    requests-per-minute-per-ip: 30
+    # 30 per minute per IP by default; raised only for the browser end-to-end suite, which is one visitor doing a lot
+    requests-per-minute-per-ip: ${LAB_REQUESTS_PER_MINUTE_PER_IP:30}
     auto-reset-minutes: ${LAB_AUTO_RESET_MINUTES:30}
     reset-cooldown-seconds: 60
     load:

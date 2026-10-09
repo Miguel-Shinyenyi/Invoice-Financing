@@ -100,6 +100,8 @@ services:
       FRAUD_DETECTION_BASE_URL: http://ml:8000
       # Only the frontend can reach this backend, so its X-Forwarded-For (the visitor's address) can be trusted.
       LAB_TRUST_FORWARDED_FOR: "true"
+      # 30 per minute per visitor unless overridden (the e2e suite sets LAB_REQUESTS_PER_MINUTE_PER_IP=300)
+      LAB_REQUESTS_PER_MINUTE_PER_IP: ${LAB_REQUESTS_PER_MINUTE_PER_IP:-30}
       LAB_ALERT_RULES_FILE: /lab/monitoring/alert-rules.yml
       JAVA_TOOL_OPTIONS: "-Xmx512m"
       OTEL_SERVICE_NAME: settlement-engine-backend
