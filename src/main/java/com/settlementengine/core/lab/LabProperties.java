@@ -19,7 +19,28 @@ public record LabProperties(
         @DefaultValue("30") int autoResetMinutes,
         @DefaultValue("60") int resetCooldownSeconds,
         @DefaultValue Load load,
-        @DefaultValue Sse sse) {
+        @DefaultValue Sse sse,
+        @DefaultValue Upstreams upstreams) {
+
+    public LabProperties withJaeger(String url) {
+        return withUpstreams(new Upstreams(url, upstreams.prometheusUrl(), upstreams.alertmanagerUrl(), upstreams.mlUrl(),
+                upstreams.alertRulesFile(), upstreams.mlFaultCooldownSeconds()));
+    }
+
+    public LabProperties withPrometheus(String prometheusUrl, String alertmanagerUrl, String rulesFile) {
+        return withUpstreams(new Upstreams(upstreams.jaegerUrl(), prometheusUrl, alertmanagerUrl, upstreams.mlUrl(), rulesFile,
+                upstreams.mlFaultCooldownSeconds()));
+    }
+
+    public LabProperties withMl(String url) {
+        return withUpstreams(new Upstreams(upstreams.jaegerUrl(), upstreams.prometheusUrl(), upstreams.alertmanagerUrl(), url,
+                upstreams.alertRulesFile(), upstreams.mlFaultCooldownSeconds()));
+    }
+
+    private LabProperties withUpstreams(Upstreams u) {
+        return new LabProperties(enabled, readOnly, trustForwardedFor, forbiddenHosts, requestsPerMinutePerIp, autoResetMinutes,
+                resetCooldownSeconds, load, sse, u);
+    }
 
     public record Load(
             @DefaultValue("20") int maxVirtualUsers,
@@ -34,5 +55,15 @@ public record LabProperties(
             @DefaultValue("3") int maxPerIp,
             @DefaultValue("50") int maxTotal,
             @DefaultValue("5") int idleTimeoutMinutes) {
+    }
+
+    /** Fixed base URLs of the sandbox's own sidecars. Visitor input never selects or alters these. */
+    public record Upstreams(
+            @DefaultValue("http://jaeger:16686") String jaegerUrl,
+            @DefaultValue("http://prometheus:9090") String prometheusUrl,
+            @DefaultValue("http://alertmanager:9093") String alertmanagerUrl,
+            @DefaultValue("http://localhost:8000") String mlUrl,
+            @DefaultValue("/lab/monitoring/alert-rules.yml") String alertRulesFile,
+            @DefaultValue("30") int mlFaultCooldownSeconds) {
     }
 }

@@ -81,7 +81,7 @@ class LabRequestGuardFilterTest {
     @Test
     void trustedForwardedForSeparatesVisitorsBehindTheIngress() throws Exception {
         LabProperties d = LabPropertiesFixtures.defaults();
-        LabProperties trusting = new LabProperties(true, false, true, d.forbiddenHosts(), 1, 30, 60, d.load(), d.sse());
+        LabProperties trusting = new LabProperties(true, false, true, d.forbiddenHosts(), 1, 30, 60, d.load(), d.sse(), d.upstreams());
         LabRequestGuardFilter filter = new LabRequestGuardFilter(trusting, mapper);
         for (String visitor : new String[] {"5.5.5.5", "6.6.6.6"}) {
             MockHttpServletRequest req = new MockHttpServletRequest("POST", "/lab/x");

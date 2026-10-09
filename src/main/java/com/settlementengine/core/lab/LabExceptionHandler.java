@@ -32,6 +32,11 @@ public class LabExceptionHandler {
         return respond(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage());
     }
 
+    @ExceptionHandler(LabUpstreamUnavailableException.class)
+    public ResponseEntity<ErrorResponse> handleUpstream(LabUpstreamUnavailableException ex) {
+        return respond(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
+    }
+
     @ExceptionHandler(LabNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleNotFound(LabNotFoundException ex) {
         return respond(HttpStatus.NOT_FOUND, ex.getMessage());
