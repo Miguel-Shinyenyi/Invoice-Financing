@@ -1,0 +1,7 @@
+# The public Lab sandbox. A separate namespace from staging (invoice-financing) with its own database, Kafka, ml-service,
+# backend and observability. NOT applied by CI/CD (`kubectl apply -f infra/k8s/` is non-recursive and never reads this
+# directory). Where this runs is a deliberate decision, see docs/cicd.md Open questions.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: settlement-lab

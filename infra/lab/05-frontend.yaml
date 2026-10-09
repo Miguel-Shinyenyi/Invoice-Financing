@@ -1,0 +1,71 @@
+# The only thing exposed. Replace the host before applying. The Ingress sends everything to the frontend, so the
+# backend, Jaeger, Prometheus and Alertmanager stay private. If the Ingress controller buffers responses, the live panels
+# fall back to 1-second polling by themselves; this is not verified here (see docs/lab.md).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: settlement-lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: localhost:15000/frontend:lab
+          ports:
+            - containerPort: 3000
+          env:
+            - { name: LAB_BACKEND_URL, value: "http://backend:8080" }
+            # Swagger UI is served by the backend; point this at wherever you choose to publish it, or leave unset.
+            # - { name: LAB_SWAGGER_URL, value: "https://lab.example.com/swagger-ui/index.html" }
+            - { name: BACKEND_URL, value: "http://backend:8080" }
+          resources:
+            requests:
+              cpu: 50m
+              memory: 96Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /app/lab
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: settlement-lab
+spec:
+  selector:
+    app: frontend
+  ports:
+    - port: 3000
+      targetPort: 3000
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: frontend
+  namespace: settlement-lab
+spec:
+  rules:
+    - host: lab.example.com # REPLACE: where the public sandbox is hosted is the owner's decision
+      http:
+        paths:
+          - path: /app
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 3000

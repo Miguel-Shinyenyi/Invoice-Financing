@@ -1,0 +1,39 @@
+# Only the frontend may call the backend; only the backend and Prometheus may call the fraud service; nothing else in
+# the namespace is reachable from outside. (Enforced by k3s's built-in network policy controller.)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-from-frontend-and-prometheus
+  namespace: settlement-lab
+spec:
+  podSelector:
+    matchLabels:
+      app: backend
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: frontend
+        - podSelector:
+            matchLabels:
+              app: prometheus
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ml-from-backend-and-prometheus
+  namespace: settlement-lab
+spec:
+  podSelector:
+    matchLabels:
+      app: ml
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: backend
+        - podSelector:
+            matchLabels:
+              app: prometheus

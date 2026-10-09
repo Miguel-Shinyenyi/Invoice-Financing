@@ -17,6 +17,10 @@ Built (Phase 6, extended in Phase 8 for the frontend). `.github/workflows/ci.yml
 
 The self-hosted runner (`docs/server-setup.md`) polls GitHub outbound and is installed as a systemd service, so no inbound port is needed for CI to reach the deploy target and it survives reboots/reconnects automatically. It runs as `miguel`, who isn't in the `docker` group — the `deploy-staging` job uses `sudo docker` for image builds rather than a standing group membership.
 
+### The Lab sandbox files (not part of the pipeline)
+
+`infra/docker-compose.lab.yml` starts the whole sandbox on one machine (`docker compose -f infra/docker-compose.lab.yml up --build`): Postgres (`settlement_engine_lab`), Kafka, the ml-service with `ML_LAB=1`, the backend with `SPRING_PROFILES_ACTIVE=demo`, Jaeger, Prometheus, Alertmanager and the frontend with `LAB_BACKEND_URL`. `infra/lab/` holds the Kubernetes equivalent in its own namespace `settlement-lab` (resource requests and limits on every container, a network policy, secrets created by command). Neither is applied by CI/CD: `kubectl apply -f infra/k8s/` is non-recursive and never reads `infra/lab/`, and `.github/workflows/` is unchanged. `infra/monitoring/alert-rules.yml` is the one canonical copy of the alert rules; staging's inline copy in `08-prometheus.yaml` is checked against it by `AlertRulesSyncTest` in the existing `test-backend` job, so the two cannot drift. The root `Dockerfile` now also copies `lab/` (the seed and scenario catalog are packaged as classpath resources; inert unless the demo profile is active). The `test-backend` job now also builds the ml-service image inside `LabInvoiceIntegrationTest` (a few minutes more; the runner has Docker).
+
 ### Not built
 
 - A real production environment separate from staging — see the decisions log. Everything currently deploys to the one `invoice-financing` namespace on push to `dev`, and that namespace is what's called "staging."
@@ -36,4 +40,6 @@ The self-hosted runner (`docs/server-setup.md`) polls GitHub outbound and is ins
 
 ## Open questions
 
+- Where the public Lab sandbox runs is Miguel's decision, not made here. Running it on the shared staging box would put load there, against the rule in `testing.md` (the box is shared with other tenants). Until it is decided, nothing deploys it.
+- Ingress controllers often buffer streamed responses. The Lab's live panels fall back to 1-second polling on their own when a stream does not open, but streaming through the k3s Ingress has not been verified.
 - Revisit adding a real production environment and a manual approval gate once there's a second real environment (a second server, or this cluster growing past single-node) to actually separate staging from.

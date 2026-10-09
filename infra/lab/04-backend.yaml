@@ -1,0 +1,78 @@
+# The backend under the demo profile. Reachable only inside the namespace (no Ingress to it): the frontend proxies a
+# fixed whitelist of its /lab/** paths, so its X-Forwarded-For can be trusted. The JWT secret comes from the Secret
+# `lab-jwt` (no default in the demo profile: the pod fails fast without it).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: settlement-lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: localhost:15000/settlement-engine:lab
+          ports:
+            - containerPort: 8080
+          env:
+            - { name: SPRING_PROFILES_ACTIVE, value: demo }
+            - { name: LAB_DB_URL, value: "jdbc:postgresql://postgres:5432/settlement_engine_lab" }
+            - name: LAB_DB_USER
+              valueFrom:
+                secretKeyRef: { name: lab-postgres, key: user }
+            - name: LAB_DB_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: lab-postgres, key: password }
+            - name: LAB_JWT_SECRET
+              valueFrom:
+                secretKeyRef: { name: lab-jwt, key: secret }
+            - { name: KAFKA_BOOTSTRAP_SERVERS, value: "kafka:9092" }
+            - { name: FRAUD_DETECTION_BASE_URL, value: "http://ml:8000" }
+            - { name: LAB_TRUST_FORWARDED_FOR, value: "true" }
+            - { name: LAB_ALERT_RULES_FILE, value: /lab/monitoring/alert-rules.yml }
+            - { name: JAVA_TOOL_OPTIONS, value: "-Xmx512m" }
+            - { name: OTEL_SERVICE_NAME, value: settlement-engine-backend }
+            - { name: OTEL_EXPORTER_OTLP_ENDPOINT, value: "http://jaeger:4317" }
+            - { name: OTEL_TRACES_EXPORTER, value: otlp }
+            - { name: OTEL_EXPORTER_OTLP_PROTOCOL, value: grpc }
+            - { name: OTEL_METRICS_EXPORTER, value: none }
+            - { name: OTEL_LOGS_EXPORTER, value: none }
+            - { name: OTEL_INSTRUMENTATION_HTTP_SERVER_CAPTURE_REQUEST_HEADERS, value: X-Request-Id }
+          volumeMounts:
+            - { name: canonical-rules, mountPath: /lab/monitoring }
+          resources:
+            requests:
+              cpu: 250m
+              memory: 640Mi
+            limits:
+              cpu: "1"
+              memory: 900Mi
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+      volumes:
+        - name: canonical-rules
+          configMap:
+            name: lab-alert-rules
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: settlement-lab
+spec:
+  selector:
+    app: backend
+  ports:
+    - port: 8080
+      targetPort: 8080
