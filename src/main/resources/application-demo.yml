@@ -12,6 +12,16 @@ spring:
     # Lab-only schema additions (V100+). Never part of the default or staging migration set.
     locations: classpath:db/migration,classpath:db/lab-migration
 
+management:
+  metrics:
+    distribution:
+      # Client-side percentiles for /lab/metrics, and histogram buckets so the sandbox Prometheus can compute
+      # the same histogram_quantile the real Grafana p95 panel uses.
+      percentiles:
+        http.server.requests: 0.5,0.95,0.99
+      percentiles-histogram:
+        http.server.requests: true
+
 server:
   error:
     include-stacktrace: never
