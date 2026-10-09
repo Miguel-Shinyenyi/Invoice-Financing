@@ -10,6 +10,7 @@ import com.settlementengine.core.gateway.ExternalSettlementGateway;
 import com.settlementengine.core.gateway.GatewayResult;
 import com.settlementengine.core.gateway.SettlementExecutionRequest;
 import com.settlementengine.core.gateway.SettlementOutcome;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.MDC;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.TransientDataAccessException;
@@ -25,15 +26,18 @@ public class SettlementService {
     private final ExternalSettlementGateway externalSettlementGateway;
     private final RequestHasher requestHasher;
     private final ObjectMapper objectMapper;
+    private final MeterRegistry meterRegistry;
 
     public SettlementService(SettlementTransactions settlementTransactions,
                               ExternalSettlementGateway externalSettlementGateway,
                               RequestHasher requestHasher,
-                              ObjectMapper objectMapper) {
+                              ObjectMapper objectMapper,
+                              MeterRegistry meterRegistry) {
         this.settlementTransactions = settlementTransactions;
         this.externalSettlementGateway = externalSettlementGateway;
         this.requestHasher = requestHasher;
         this.objectMapper = objectMapper;
+        this.meterRegistry = meterRegistry;
     }
 
     public SettlementResult createSettlement(UUID idempotencyKey, CreateSettlementCommand command) {
@@ -102,6 +106,7 @@ public class SettlementService {
                     // partial CONFIRMED/FAILED effects exist to worry about).
                     return finalizeAsUnknownAfterExhaustingRetries(settlementId, transientFailure);
                 }
+                meterRegistry.counter("settlement.finalize.retries").increment();
                 sleepBriefly(attempt);
             }
         }
@@ -110,6 +115,7 @@ public class SettlementService {
 
     private SettlementResult finalizeAsUnknownAfterExhaustingRetries(UUID settlementId,
                                                                        TransientDataAccessException original) {
+        meterRegistry.counter("settlement.unknown.fallback").increment();
         GatewayResult unknownResult = new GatewayResult(SettlementOutcome.UNKNOWN, null);
         for (int attempt = 1; attempt <= MAX_UNKNOWN_FALLBACK_ATTEMPTS; attempt++) {
             try {
@@ -122,6 +128,7 @@ public class SettlementService {
                     // fallback existed rather than silently losing the settlement.
                     throw original;
                 }
+                meterRegistry.counter("settlement.finalize.retries").increment();
                 sleepBriefly(attempt);
             }
         }

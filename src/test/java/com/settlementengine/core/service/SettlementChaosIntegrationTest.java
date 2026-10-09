@@ -58,7 +58,8 @@ class SettlementChaosIntegrationTest extends AbstractIntegrationTest {
     private KafkaTemplate<String, String> kafkaTemplate;
 
     private SettlementService settlementServiceWith(FaultInjectableExternalSettlementGateway gateway) {
-        return new SettlementService(settlementTransactions, gateway, requestHasher, objectMapper);
+        return new SettlementService(settlementTransactions, gateway, requestHasher, objectMapper,
+                new io.micrometer.core.instrument.simple.SimpleMeterRegistry());
     }
 
     private LedgerAccount account(BigDecimal balance) {

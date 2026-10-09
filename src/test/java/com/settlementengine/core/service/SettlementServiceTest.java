@@ -10,6 +10,7 @@ import com.settlementengine.core.gateway.ExternalSettlementGateway;
 import com.settlementengine.core.gateway.GatewayResult;
 import com.settlementengine.core.gateway.SettlementExecutionRequest;
 import com.settlementengine.core.gateway.SettlementOutcome;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,6 +40,7 @@ class SettlementServiceTest {
     private ExternalSettlementGateway externalSettlementGateway;
 
     private SettlementService settlementService;
+    private SimpleMeterRegistry meterRegistry;
 
     private UUID idempotencyKey;
     private CreateSettlementCommand command;
@@ -47,7 +49,9 @@ class SettlementServiceTest {
     void setUp() {
         ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
         RequestHasher requestHasher = new RequestHasher(objectMapper);
-        settlementService = new SettlementService(settlementTransactions, externalSettlementGateway, requestHasher, objectMapper);
+        meterRegistry = new SimpleMeterRegistry();
+        settlementService = new SettlementService(settlementTransactions, externalSettlementGateway, requestHasher, objectMapper,
+                meterRegistry);
 
         idempotencyKey = UUID.randomUUID();
         command = new CreateSettlementCommand(UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("25.00"), "USD");
@@ -171,6 +175,48 @@ class SettlementServiceTest {
         SettlementResult result = settlementService.createSettlement(idempotencyKey, command);
 
         assertThat(result.status()).isEqualTo(SettlementStatus.UNKNOWN);
+    }
+
+    @Test
+    void eachFinalizeRetryIsCountedAndTheFallbackToUnknownIsCountedOnce() {
+        when(settlementTransactions.findExisting(idempotencyKey)).thenReturn(Optional.empty());
+        SettlementExecutionRequest executionRequest = new SettlementExecutionRequest(
+                UUID.randomUUID(), command.sourceAccountId(), command.destinationAccountId(), command.amount(), command.currency());
+        when(settlementTransactions.createPendingSettlement(any(), any(), any())).thenReturn(executionRequest);
+        GatewayResult confirmedResult = new GatewayResult(SettlementOutcome.CONFIRMED, "MOCK-ref");
+        when(externalSettlementGateway.execute(executionRequest)).thenReturn(confirmedResult);
+        when(settlementTransactions.finalizeSettlement(executionRequest.settlementId(), confirmedResult))
+                .thenThrow(new CannotAcquireLockException("deadlock"));
+        GatewayResult unknownResult = new GatewayResult(SettlementOutcome.UNKNOWN, null);
+        when(settlementTransactions.finalizeSettlement(executionRequest.settlementId(), unknownResult))
+                .thenReturn(new SettlementResult(executionRequest.settlementId(), command.sourceAccountId(),
+                        command.destinationAccountId(), command.amount(), command.currency(), SettlementStatus.UNKNOWN,
+                        null, Instant.now(), Instant.now()));
+
+        settlementService.createSettlement(idempotencyKey, command);
+
+        // attempts 1-4 each fail and are retried; the 5th fails and triggers the fallback
+        assertThat(meterRegistry.counter("settlement.finalize.retries").count()).isEqualTo(4.0);
+        assertThat(meterRegistry.counter("settlement.unknown.fallback").count()).isEqualTo(1.0);
+    }
+
+    @Test
+    void aCleanFinalizeCountsNeitherRetriesNorFallbacks() {
+        when(settlementTransactions.findExisting(idempotencyKey)).thenReturn(Optional.empty());
+        SettlementExecutionRequest executionRequest = new SettlementExecutionRequest(
+                UUID.randomUUID(), command.sourceAccountId(), command.destinationAccountId(), command.amount(), command.currency());
+        when(settlementTransactions.createPendingSettlement(any(), any(), any())).thenReturn(executionRequest);
+        GatewayResult confirmedResult = new GatewayResult(SettlementOutcome.CONFIRMED, "MOCK-ref");
+        when(externalSettlementGateway.execute(executionRequest)).thenReturn(confirmedResult);
+        when(settlementTransactions.finalizeSettlement(executionRequest.settlementId(), confirmedResult))
+                .thenReturn(new SettlementResult(executionRequest.settlementId(), command.sourceAccountId(),
+                        command.destinationAccountId(), command.amount(), command.currency(), SettlementStatus.CONFIRMED,
+                        "MOCK-ref", Instant.now(), Instant.now()));
+
+        settlementService.createSettlement(idempotencyKey, command);
+
+        assertThat(meterRegistry.counter("settlement.finalize.retries").count()).isZero();
+        assertThat(meterRegistry.counter("settlement.unknown.fallback").count()).isZero();
     }
 
     @Test
