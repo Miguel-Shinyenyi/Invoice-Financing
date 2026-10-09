@@ -106,6 +106,21 @@ class LabLoadIntegrationTest extends AbstractLabIntegrationTest {
     }
 
     @Test
+    void driftThatExistedBeforeTheRunIsReportedAsSuchNotBlamedOnTheRun() throws Exception {
+        jdbc.update("update ledger_accounts set balance = balance + 40 where id = '10000000-0000-0000-0000-000000000001'");
+        JsonNode run = awaitDone(mapper.readTree(start(plan("FRESH_SETTLEMENTS", 3, 3, 40, "1.00", null)).getBody())
+                .get("runId").asText());
+        JsonNode balances = null;
+        for (JsonNode i : run.get("invariants")) {
+            if (i.get("id").asText().equals("BALANCES_MATCH_ENTRIES")) {
+                balances = i;
+            }
+        }
+        assertThat(balances.get("status").asText()).as(balances.get("detail").asText()).isEqualTo("PASS");
+        assertThat(balances.get("detail").asText()).contains("already drifted before the run").contains("40");
+    }
+
+    @Test
     void theInvoiceFinancingScenarioRuns() throws Exception {
         JsonNode run = awaitDone(mapper.readTree(start(plan("INVOICE_FINANCING", 2, 3, 20, "100.00", null)).getBody())
                 .get("runId").asText());

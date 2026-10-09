@@ -49,7 +49,7 @@ test("correlate: one request id returns logs, a trace, audit, outbox and the ins
   }, { "X-Request-Id": rid });
   await page.goto(`/app/lab/correlate?requestId=${rid}`);
   await expect(page.getByText(/Log lines, both services \([1-9]/)).toBeVisible();
-  await expect(page.getByText(/Outbox events \([1-9]/)).toBeVisible();
+  await expect(page.getByText(/Outbox events \([1-9]/).first()).toBeVisible();
   await expect(page.getByText(/Inspector · settlement/)).toBeVisible();
   await expect(async () => {
     await page.reload();

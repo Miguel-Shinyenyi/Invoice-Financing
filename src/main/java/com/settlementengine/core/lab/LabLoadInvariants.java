@@ -11,6 +11,7 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.function.BooleanSupplier;
 
@@ -19,7 +20,8 @@ import java.util.function.BooleanSupplier;
 public class LabLoadInvariants {
 
     /** Balances captured before the run starts. */
-    public record Baseline(BigDecimal poolTotal, BigDecimal dupSourceBalance, BigDecimal dupDestinationBalance) {
+    public record Baseline(BigDecimal poolTotal, BigDecimal dupSourceBalance, BigDecimal dupDestinationBalance,
+                           java.util.Map<UUID, BigDecimal> drift) {
     }
 
     private final JdbcTemplate jdbc;
@@ -36,14 +38,14 @@ public class LabLoadInvariants {
     }
 
     public Baseline baseline() {
-        return new Baseline(poolTotal(), balance(LabLoadScope.DUP_SOURCE), balance(LabLoadScope.DUP_DESTINATION));
+        return new Baseline(poolTotal(), balance(LabLoadScope.DUP_SOURCE), balance(LabLoadScope.DUP_DESTINATION), drift());
     }
 
     public List<LabInvariant> check(LoadPlan plan, Baseline before, UUID burstKey) {
         List<LabInvariant> out = new ArrayList<>();
         out.add(poolTotalUnchanged(before));
         out.add(duplicatePair(plan, before, burstKey));
-        out.add(balancesMatchEntries());
+        out.add(balancesMatchEntries(before));
         out.add(noStalePending());
         out.add(outboxDrained());
         out.add(readModelMatches());
@@ -75,13 +77,25 @@ public class LabLoadInvariants {
         return ok ? LabInvariant.pass(id, title, detail) : LabInvariant.fail(id, title, detail);
     }
 
-    private LabInvariant balancesMatchEntries() {
+    private LabInvariant balancesMatchEntries(Baseline before) {
         String id = "BALANCES_MATCH_ENTRIES";
         String title = "Every touched account's balance equals the sum of its ledger entries";
-        List<UUID> scope = new ArrayList<>(LabLoadScope.POOL);
-        scope.addAll(List.of(LabLoadScope.DUP_SOURCE, LabLoadScope.DUP_DESTINATION, LabLoadScope.BUSINESS, LabLoadScope.PLATFORM));
+        List<UUID> scope = scope();
         List<String> bad = new ArrayList<>();
+        List<String> preExisting = new ArrayList<>();
+        Map<UUID, BigDecimal> now = drift();
         for (UUID accountId : scope) {
+            BigDecimal was = before.drift().getOrDefault(accountId, BigDecimal.ZERO);
+            BigDecimal is = now.getOrDefault(accountId, BigDecimal.ZERO);
+            if (was.signum() != 0) {
+                // Already inconsistent when the run started (someone edited the row). Only a change is this run's doing.
+                if (was.compareTo(is) == 0) {
+                    preExisting.add(accountId + " (stored minus entries = " + was.stripTrailingZeros().toPlainString() + ")");
+                } else {
+                    bad.add("account " + accountId + " drift changed during the run from " + was + " to " + is);
+                }
+                continue;
+            }
             LedgerAccount account = accounts.findById(accountId).orElse(null);
             if (account == null) {
                 bad.add(accountId + " missing");
@@ -93,8 +107,31 @@ public class LabLoadInvariants {
                 bad.add(e.getMessage());
             }
         }
-        return bad.isEmpty() ? LabInvariant.pass(id, title, scope.size() + " accounts checked with LedgerConsistencyService")
+        String note = preExisting.isEmpty() ? "" : "; already drifted before the run and unchanged by it: " + String.join(", ", preExisting);
+        return bad.isEmpty() ? LabInvariant.pass(id, title, scope.size() + " accounts checked with LedgerConsistencyService" + note)
                 : LabInvariant.fail(id, title, String.join("; ", bad));
+    }
+
+    private static List<UUID> scope() {
+        List<UUID> scope = new ArrayList<>(LabLoadScope.POOL);
+        scope.addAll(List.of(LabLoadScope.DUP_SOURCE, LabLoadScope.DUP_DESTINATION, LabLoadScope.BUSINESS, LabLoadScope.PLATFORM));
+        return scope;
+    }
+
+    /** stored balance minus the net of the entries, for the accounts in scope that disagree. Read with SQL only: no mismatch rows are written. */
+    private Map<UUID, BigDecimal> drift() {
+        Map<UUID, BigDecimal> out = new java.util.HashMap<>();
+        String placeholders = String.join(",", java.util.Collections.nCopies(scope().size(), "?"));
+        jdbc.query("""
+                select a.id, a.balance - coalesce(sum(case when e.entry_type = 'DEBIT' then -e.amount else e.amount end), 0) as drift
+                from ledger_accounts a left join ledger_entries e on e.account_id = a.id
+                where a.id in (""" + placeholders + ") group by a.id, a.balance", rs -> {
+            BigDecimal d = rs.getBigDecimal("drift");
+            if (d.signum() != 0) {
+                out.put((UUID) rs.getObject("id"), d);
+            }
+        }, scope().toArray());
+        return out;
     }
 
     private LabInvariant noStalePending() {
