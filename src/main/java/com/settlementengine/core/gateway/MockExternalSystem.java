@@ -57,4 +57,17 @@ public class MockExternalSystem implements ExternalSettlementGateway, ExternalRe
     public void clear() {
         records.clear();
     }
+
+    /**
+     * Replaces the whole store without ever exposing an empty one: new records go in first, then
+     * records absent from the new set are removed.
+     */
+    public void replaceAll(java.util.Collection<ExternalRecord> replacement) {
+        java.util.Set<String> keep = new java.util.HashSet<>();
+        for (ExternalRecord record : replacement) {
+            records.put(record.reference(), record);
+            keep.add(record.reference());
+        }
+        records.keySet().removeIf(ref -> !keep.contains(ref));
+    }
 }

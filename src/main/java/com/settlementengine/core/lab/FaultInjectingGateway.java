@@ -5,6 +5,7 @@ import com.settlementengine.core.gateway.GatewayResult;
 import com.settlementengine.core.gateway.MockExternalSystem;
 import com.settlementengine.core.gateway.SettlementExecutionRequest;
 import com.settlementengine.core.gateway.SettlementOutcome;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Primary;
 
 import java.util.Random;
@@ -23,6 +24,7 @@ public class FaultInjectingGateway implements ExternalSettlementGateway {
     private final LabOrphanedExternalRecords orphans;
     private final RandomGenerator rng;
 
+    @Autowired
     public FaultInjectingGateway(MockExternalSystem delegate, LabOrphanedExternalRecords orphans) {
         this(delegate, orphans, new Random());
     }

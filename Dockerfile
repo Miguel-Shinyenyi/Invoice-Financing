@@ -3,6 +3,7 @@ WORKDIR /build
 COPY pom.xml .
 RUN mvn -q -B dependency:go-offline
 COPY src ./src
+COPY lab ./lab
 RUN mvn -q -B package -DskipTests
 ADD https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.29.0/opentelemetry-javaagent.jar /build/otel-agent.jar
 

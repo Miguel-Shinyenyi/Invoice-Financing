@@ -129,6 +129,21 @@
     </dependencies>
 
     <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <!-- Lab seed + scenario catalog: canonical home is lab/seed/ (committed, human-readable); the
+                 demo profile reads them from the classpath. Inert unless the demo profile is active. -->
+            <resource>
+                <directory>lab/seed</directory>
+                <targetPath>lab</targetPath>
+                <includes>
+                    <include>lab-seed.sql</include>
+                    <include>scenarios.json</include>
+                </includes>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>

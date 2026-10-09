@@ -10,7 +10,7 @@ import java.util.UUID;
  * "the external system holds this, we do not know its reference".
  */
 @LabComponent
-public class LabOrphanedExternalRecords {
+public class LabOrphanedExternalRecords implements LabResettable {
 
     public record Orphan(UUID settlementId, String externalRef, Instant at) {
     }
@@ -30,5 +30,10 @@ public class LabOrphanedExternalRecords {
 
     public synchronized void clear() {
         orphans.clear();
+    }
+
+    @Override
+    public void resetInMemory() {
+        clear();
     }
 }
