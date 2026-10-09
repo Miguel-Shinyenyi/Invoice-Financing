@@ -6,7 +6,7 @@ Describes the test strategy, with particular emphasis on correctness under unrel
 
 ## Current state
 
-Java test suite covers Phases 1-9 plus later fixes, 227 tests, all passing; the Python `ml-service` has its own 14-test pytest suite (see below).
+Java test suite covers Phases 1-9 plus later fixes and the Lab, 414 tests, all passing; the Python `ml-service` has its own 26-test pytest suite (see below).
 
 - Unit tests, no Spring context, plain JUnit 5 + Mockito: `SettlementStatusTest` (all 20 valid/invalid transition pairs), `LedgerAccountTest` (credit/debit/insufficient balance), `SettlementTest` (entity-level transition enforcement), `IdempotencyKeyTest`, `SettlementTransactionsTest` (validation rejections, `CONFIRMED`/`FAILED`/`UNKNOWN` finalize paths, balanced ledger entries), `SettlementServiceTest` (routing to cached/conflict/reused/fresh, race-fallback logic with a mocked `DataAccessException`).
 - Integration tests, real Postgres via Testcontainers (`AbstractIntegrationTest` base, `@ServiceConnection`): `SettlementApiIntegrationTest` (full HTTP stack: create, retrieve, duplicate submission, missing header, insufficient balance, account not found) and `SettlementConcurrencyIntegrationTest`, which fires 8 concurrent threads at the same idempotency key against a real database and asserts exactly one settlement, exactly one pair of ledger entries, and correct final account balances.
