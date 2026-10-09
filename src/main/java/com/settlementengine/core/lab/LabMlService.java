@@ -58,6 +58,9 @@ public class LabMlService {
                     continue;
                 }
                 maxSeq = Math.max(maxSeq, seq);
+                if (isOwnPoll(e)) {
+                    continue; // our own GET /lab/logs would otherwise be merged back in every 2 seconds
+                }
                 buffer.append(new LabLogEvent(0, OffsetDateTime.parse(e.path("timestamp").asText()).toInstant(),
                         e.path("service").asText("ml-service"), e.path("level").asText(), e.path("logger").asText(),
                         e.path("message").asText(), textOrNull(e, "requestId"), null, null, textOrNull(e, "traceId")));
@@ -86,6 +89,10 @@ public class LabMlService {
         out.put("effect", "ml-service answers 503 on /score and /metrics until it expires; the backend fails open "
                 + "(financing continues, fraud signal degraded) and MLServiceDown starts counting.");
         return out;
+    }
+
+    private static boolean isOwnPoll(JsonNode e) {
+        return "uvicorn.access".equals(e.path("logger").asText()) && e.path("message").asText().contains("GET /lab/logs");
     }
 
     private static String textOrNull(JsonNode e, String field) {

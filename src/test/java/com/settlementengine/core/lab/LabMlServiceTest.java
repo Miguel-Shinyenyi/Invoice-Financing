@@ -45,6 +45,19 @@ class LabMlServiceTest {
     }
 
     @Test
+    void theAccessLogLinesOfThePollItselfAreNotMergedBack() throws Exception {
+        try (StubUpstream ml = new StubUpstream().on("/lab/logs", "{\"events\":["
+                + "{\"seq\":1,\"timestamp\":\"2026-10-09T12:00:00+00:00\",\"level\":\"INFO\",\"logger\":\"uvicorn.access\","
+                + "\"message\":\"1.2.3.4:5 - GET /lab/logs?limit=200 HTTP/1.1 200\"},"
+                + "{\"seq\":2,\"timestamp\":\"2026-10-09T12:00:01+00:00\",\"level\":\"INFO\",\"logger\":\"uvicorn.access\","
+                + "\"message\":\"1.2.3.4:5 - POST /score HTTP/1.1 200\"}]}")) {
+            LabLogBuffer buffer = new LabLogBuffer();
+            new LabMlService(LabPropertiesFixtures.defaults().withMl(ml.url()), buffer, new AtomicLong(0)::get).pollLogs();
+            assertThat(buffer.query(LabLogFilter.NONE, 10)).extracting(LabLogEvent::message).hasSize(1).first().asString().contains("POST /score");
+        }
+    }
+
+    @Test
     void anUnreachableMlServiceDoesNotBreakPolling() {
         LabLogBuffer buffer = new LabLogBuffer();
         new LabMlService(LabPropertiesFixtures.defaults().withMl("http://127.0.0.1:1"), buffer, System::nanoTime).pollLogs();
