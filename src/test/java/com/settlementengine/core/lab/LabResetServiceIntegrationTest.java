@@ -65,7 +65,13 @@ class LabResetServiceIntegrationTest extends AbstractLabIntegrationTest {
 
         reset.reset();
 
-        assertThat(counts()).isEqualTo(seedCounts);
+        // reconciliation_runs is written by the real 5-second scheduled run, which can land between two snapshots;
+        // every other table must match the seed exactly
+        Map<String, Integer> after = counts();
+        assertThat(after.get("reconciliation_runs")).isBetween(seedCounts.get("reconciliation_runs"), seedCounts.get("reconciliation_runs") + 2);
+        after.remove("reconciliation_runs");
+        seedCounts.remove("reconciliation_runs");
+        assertThat(after).isEqualTo(seedCounts);
         assertThat(balances()).isEqualTo(seedBalances);
         assertThat(payments.paymentCount()).isZero();
         assertThat(orphans.all()).isEmpty();
