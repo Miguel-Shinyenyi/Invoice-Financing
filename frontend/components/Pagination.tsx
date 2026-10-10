@@ -23,7 +23,7 @@ export function Pagination({
   }
 
   return (
-    <div className="flex items-center justify-between border-t-2 border-black px-4 py-3">
+    <div className="flex items-center justify-between px-4 py-3">
       <Link
         href={hrefFor(Math.max(0, page - 1))}
         aria-disabled={page === 0}
@@ -31,7 +31,7 @@ export function Pagination({
       >
         Previous
       </Link>
-      <span className="text-sm font-bold text-black">
+      <span className="text-sm font-semibold text-ink">
         Page {page + 1} of {totalPages}
       </span>
       <Link

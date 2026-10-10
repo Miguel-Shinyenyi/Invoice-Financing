@@ -22,11 +22,12 @@ const LINKS: Array<[string, string]> = [
   ["/lab/api", "API"],
 ];
 
+/** Lab sections as a segmented control. It scrolls sideways inside itself on narrow screens. */
 export function LabNav() {
   const pathname = usePathname();
   return (
-    <nav aria-label="Lab" className="mt-3 max-w-full overflow-x-auto pb-2">
-      <ul className="flex w-max gap-2">
+    <nav aria-label="Lab" className="mt-4 max-w-full overflow-x-auto pb-1">
+      <ul className="segmented">
         {LINKS.map(([href, label]) => (
           <li key={href}>
             <NavChip href={href} active={pathname === href}>{label}</NavChip>

@@ -1,22 +1,21 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { currentUser } from "@/lib/api";
 import { NavBar } from "@/components/NavBar";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+// No web font: the system stack in globals.css renders San Francisco on Apple devices and the
+// platform UI font elsewhere, and the build no longer needs to reach Google Fonts.
 
 export const metadata: Metadata = {
   title: "Invoice Financing",
   description: "Idempotent settlement and reconciliation engine -- admin dashboard",
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f5f5f7" },
+    { media: "(prefers-color-scheme: dark)", color: "#000000" },
+  ],
 };
 
 export default async function RootLayout({
@@ -27,11 +26,8 @@ export default async function RootLayout({
   const user = await currentUser();
 
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col bg-[var(--background)]">
+    <html lang="en" className="h-full antialiased">
+      <body className="flex min-h-full flex-col bg-canvas text-ink">
         <NavBar role={user?.role ?? null} />
         <main className="flex-1">{children}</main>
       </body>

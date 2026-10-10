@@ -113,10 +113,10 @@ export default function PlaygroundPage() {
           {r.data && r.ok && (
             <div className="space-y-2 text-sm">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="neo-badge bg-white">would be HTTP {r.data.httpStatus}</span>
+                <span className="neo-badge bg-surface">would be HTTP {r.data.httpStatus}</span>
                 {r.data.result && <StatusBadge status={r.data.result.status} />}
-                {r.data.replay && <span className="neo-badge bg-[var(--color-neo-blue)] text-white">cached response, replayed</span>}
-                {r.data.fault !== "NONE" && <span className="neo-badge bg-white">fault: {r.data.fault}</span>}
+                {r.data.replay && <span className="neo-badge tone-blue">cached response, replayed</span>}
+                {r.data.fault !== "NONE" && <span className="neo-badge bg-surface">fault: {r.data.fault}</span>}
               </div>
               {r.data.error && <Notice tone="yellow">{r.data.error}</Notice>}
               {r.data.result && (

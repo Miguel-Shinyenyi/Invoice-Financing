@@ -28,7 +28,7 @@ export default async function SettlementsPage({
   return (
     <PageContainer>
       <PageHeader title="Settlements" subtitle="From the read model: the CQRS projection of the settlements table.">
-        <div className="flex max-w-full flex-wrap gap-2">
+        <div className="segmented max-w-full overflow-x-auto" role="group" aria-label="Filter by status">
           <NavChip href="/settlements" active={!status}>All</NavChip>
           {STATUSES.map((s) => (
             <NavChip key={s} href={`/settlements?status=${s}`} active={status === s}>{s}</NavChip>
@@ -39,10 +39,10 @@ export default async function SettlementsPage({
       <Table head={["Settlement", "Source", "Destination", "Amount", "Status", "Updated"]} empty={data.content.length === 0 ? "No settlements found." : undefined}>
         {data.content.map((s) => (
           <tr key={s.settlementId}>
-            <td className="px-3 py-2"><Link href={`/settlements/${s.settlementId}`} className="font-mono text-xs font-bold underline">{s.settlementId.slice(0, 8)}</Link></td>
-            <td className="px-3 py-2"><Link href={`/accounts/${s.sourceAccountId}`} className="font-mono text-xs font-bold underline">{s.sourceAccountId.slice(0, 8)}</Link></td>
-            <td className="px-3 py-2"><Link href={`/accounts/${s.destinationAccountId}`} className="font-mono text-xs font-bold underline">{s.destinationAccountId.slice(0, 8)}</Link></td>
-            <td className="px-3 py-2 font-bold">{s.amount} {s.currency}</td>
+            <td className="px-3 py-2"><Link href={`/settlements/${s.settlementId}`} className="font-mono text-[13px] text-link hover:underline">{s.settlementId.slice(0, 8)}</Link></td>
+            <td className="px-3 py-2"><Link href={`/accounts/${s.sourceAccountId}`} className="font-mono text-[13px] text-link hover:underline">{s.sourceAccountId.slice(0, 8)}</Link></td>
+            <td className="px-3 py-2"><Link href={`/accounts/${s.destinationAccountId}`} className="font-mono text-[13px] text-link hover:underline">{s.destinationAccountId.slice(0, 8)}</Link></td>
+            <td className="px-3 py-2 font-semibold">{s.amount} {s.currency}</td>
             <td className="px-3 py-2"><StatusBadge status={s.status} /></td>
             <td className="whitespace-nowrap px-3 py-2">{new Date(s.updatedAt).toLocaleString()}</td>
           </tr>

@@ -54,7 +54,7 @@ export default function MetricsPage() {
       <PageHeader title="Metrics" subtitle="A curated snapshot read straight from the backend's meter registry, polled every second while this page is open. Grafana and /actuator/prometheus are not exposed; the four Grafana dashboards are reproduced here.">
         <LiveBadge mode={mode} />
       </PageHeader>
-      {unreachable && <p className="font-bold">The metrics endpoint did not answer.</p>}
+      {unreachable && <p className="font-semibold">The metrics endpoint did not answer.</p>}
       {cur && (
         <>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -69,22 +69,22 @@ export default function MetricsPage() {
           <div className="grid gap-4 lg:grid-cols-2">
             <Card title="Settlement outcome breakdown">
               <BarList title="settlement.outcome by outcome" items={Object.entries(cur.dashboards.settlementOutcomes.values).map(([label, value]) => ({ label, value }))} />
-              <div className="mt-3"><Disclosure summary="Query"><p className="mb-1 text-xs font-bold">{cur.dashboards.settlementOutcomes.source}, the Grafana panel's expression:</p><CodeBox maxHeight="6rem">{cur.dashboards.settlementOutcomes.query}</CodeBox></Disclosure></div>
+              <div className="mt-3"><Disclosure summary="Query"><p className="mb-1 text-xs font-semibold">{cur.dashboards.settlementOutcomes.source}, the Grafana panel's expression:</p><CodeBox maxHeight="6rem">{cur.dashboards.settlementOutcomes.query}</CodeBox></Disclosure></div>
             </Card>
             <Card title="Backend request latency (POST /settlements, 201)">
               <LineChart title="p50 and p95 of the last 120 samples" unit="ms" series={[{ name: "p50", values: p50Series }, { name: "p95", values: p95Series }]} xLabel="sample (1 s)" />
               <div className="mt-3"><Disclosure summary="Query">
-                <p className="mb-1 text-xs font-bold">{cur.dashboards.backendP95.source}, the Grafana panel's expression:</p><CodeBox maxHeight="6rem">{cur.dashboards.backendP95.query}</CodeBox>
+                <p className="mb-1 text-xs font-semibold">{cur.dashboards.backendP95.source}, the Grafana panel's expression:</p><CodeBox maxHeight="6rem">{cur.dashboards.backendP95.query}</CodeBox>
                 <p className="mt-2 text-xs font-medium">{cur.dashboards.backendP95.note} Here the percentiles come from the registry's client-side histogram, read directly.</p>
               </Disclosure></div>
             </Card>
             <Card title="Fraud score distribution">
               <Histogram title={`${cur.dashboards.fraudScores.scores.length} assessments`} values={cur.dashboards.fraudScores.scores} />
-              <div className="mt-3"><Disclosure summary="Query"><p className="mb-1 text-xs font-bold">{cur.dashboards.fraudScores.source}, read directly as Grafana does:</p><CodeBox maxHeight="6rem">{cur.dashboards.fraudScores.query}</CodeBox></Disclosure></div>
+              <div className="mt-3"><Disclosure summary="Query"><p className="mb-1 text-xs font-semibold">{cur.dashboards.fraudScores.source}, read directly as Grafana does:</p><CodeBox maxHeight="6rem">{cur.dashboards.fraudScores.query}</CodeBox></Disclosure></div>
             </Card>
             <Card title="Fraud decisions">
               <BarList title="decision" items={Object.entries(cur.dashboards.fraudDecisions.values).map(([label, value]) => ({ label, value }))} />
-              <div className="mt-3"><Disclosure summary="Query"><p className="mb-1 text-xs font-bold">{cur.dashboards.fraudDecisions.source}:</p><CodeBox maxHeight="6rem">{cur.dashboards.fraudDecisions.query}</CodeBox></Disclosure></div>
+              <div className="mt-3"><Disclosure summary="Query"><p className="mb-1 text-xs font-semibold">{cur.dashboards.fraudDecisions.source}:</p><CodeBox maxHeight="6rem">{cur.dashboards.fraudDecisions.query}</CodeBox></Disclosure></div>
             </Card>
             <Card title="Connection pool and outbox over time">
               <LineChart title="Hikari and outbox" series={[

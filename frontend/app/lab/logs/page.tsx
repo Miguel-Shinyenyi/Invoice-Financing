@@ -103,17 +103,17 @@ export default function LogsPage() {
         </form>
       </Card>
       <Card title={`Tail (${events.length}, newest at the bottom, last ${MAX_ROWS} kept)`}>
-        <div className="max-h-[32rem] max-w-full overflow-auto border-2 border-black bg-black p-2 font-mono text-[11px] leading-snug text-[var(--color-neo-cream)]" data-testid="log-tail">
+        <div className="max-h-[32rem] max-w-full overflow-auto rounded-xl bg-[var(--code-bg)] p-2 font-mono text-[11px] leading-snug text-[var(--code-ink)]" data-testid="log-tail">
           {events.length === 0 && <p>No matching log lines yet.</p>}
           {events.map((e) => (
             <div key={`${e.service}:${e.seq}`} className="whitespace-pre-wrap break-words border-b border-white/10 py-0.5" data-level={e.level}>
-              <span className="opacity-60">{fmtTime(e.timestamp)}</span>{" "}
-              <span className="font-bold">{e.service === "ml-service" ? "[ml]" : "[be]"}</span>{" "}
-              <span className={e.level === "ERROR" ? "font-black text-[var(--color-neo-red)]" : e.level.startsWith("WARN") ? "font-bold text-[var(--color-neo-orange)]" : ""}>{LEVEL_GLYPH[e.level] ?? "·"} {e.level}</span>{" "}
-              <span className="opacity-70">{e.logger.split(".").pop()}</span> {e.message}
-              {e.settlementId && <> <Link className="text-[var(--color-neo-yellow)] underline" href={`/lab/playground?inspect=${e.settlementId}`}>settlement {e.settlementId.slice(0, 8)}</Link></>}
-              {e.requestId && <> <Link className="text-[var(--color-neo-pink)] underline" href={`/lab/correlate?requestId=${e.requestId}`}>req {e.requestId.slice(0, 10)}</Link></>}
-              {e.traceId && <> <Link className="text-[var(--color-neo-green)] underline" href={`/lab/traces?traceId=${e.traceId}`}>trace {e.traceId.slice(0, 8)}</Link></>}
+              <span className="text-[var(--code-muted)]">{fmtTime(e.timestamp)}</span>{" "}
+              <span className="font-semibold">{e.service === "ml-service" ? "[ml]" : "[be]"}</span>{" "}
+              <span className={e.level === "ERROR" ? "font-semibold text-[var(--code-red)]" : e.level.startsWith("WARN") ? "font-semibold text-[var(--code-orange)]" : ""}>{LEVEL_GLYPH[e.level] ?? "·"} {e.level}</span>{" "}
+              <span className="text-[var(--code-muted)]">{e.logger.split(".").pop()}</span> {e.message}
+              {e.settlementId && <> <Link className="text-[var(--code-yellow)] underline" href={`/lab/playground?inspect=${e.settlementId}`}>settlement {e.settlementId.slice(0, 8)}</Link></>}
+              {e.requestId && <> <Link className="text-[var(--code-pink)] underline" href={`/lab/correlate?requestId=${e.requestId}`}>req {e.requestId.slice(0, 10)}</Link></>}
+              {e.traceId && <> <Link className="text-[var(--code-green)] underline" href={`/lab/traces?traceId=${e.traceId}`}>trace {e.traceId.slice(0, 8)}</Link></>}
             </div>
           ))}
         </div>

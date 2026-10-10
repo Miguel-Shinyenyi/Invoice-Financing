@@ -26,19 +26,19 @@ export default function DataPage() {
         <LiveBadge mode={mode} />
       </PageHeader>
       <Card title="Table">
-        <div className="flex flex-wrap gap-2">
+        <div className="segmented max-w-full flex-wrap" role="group" aria-label="Table">
           {(data?.tables ?? [initial]).map((t) => (
-            <button key={t} onClick={() => { setTable(t); setPage(0); }} className={`neo-chip ${t === table ? "bg-[var(--color-neo-yellow)]" : "bg-white"}`} aria-pressed={t === table}>{t}</button>
+            <button key={t} onClick={() => { setTable(t); setPage(0); }} className="neo-chip" aria-pressed={t === table}>{t}</button>
           ))}
         </div>
       </Card>
       <Card title={`${table} · ${data?.total ?? "…"} rows`} right={
-        <div className="flex items-center gap-2 text-xs font-bold">
+        <div className="flex items-center gap-2 text-xs font-semibold">
           <Btn disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>Prev</Btn>
           <span>page {page + 1} of {pages}</span>
           <Btn disabled={page + 1 >= pages} onClick={() => setPage((p) => p + 1)}>Next</Btn>
         </div>}>
-        {last && !last.ok && <p className="font-bold">{last.message}</p>}
+        {last && !last.ok && <p className="font-semibold">{last.message}</p>}
         {data && (
           <Table head={data.columns} empty={data.rows.length === 0 ? "No rows." : undefined}>
             {data.rows.map((r, i) => (

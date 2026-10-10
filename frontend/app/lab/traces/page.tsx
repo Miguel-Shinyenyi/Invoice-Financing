@@ -67,7 +67,7 @@ export default function TracesPage() {
           <Table head={["Root operation", "Services", "Spans", "Duration", ""]} empty={list.data.length === 0 ? "No traces matched. Traces appear a few seconds after a request; a filter finds only requests whose log lines carry a trace id." : undefined}>
             {list.data.map((t) => (
               <tr key={t.traceId} data-trace={t.traceId}>
-                <td className="px-3 py-1.5 text-xs font-bold">{t.hasError && <span aria-label="has an error span">✗ </span>}{t.rootOperation}<div className="font-mono text-[10px] font-medium">{t.traceId}</div></td>
+                <td className="px-3 py-1.5 text-xs font-semibold">{t.hasError && <span aria-label="has an error span">✗ </span>}{t.rootOperation}<div className="font-mono text-[10px] font-medium">{t.traceId}</div></td>
                 <td className="px-3 py-1.5 text-xs">{t.services.join(", ")}</td>
                 <td className="px-3 py-1.5 font-mono">{t.spanCount}</td>
                 <td className="px-3 py-1.5 font-mono">{fmtMicros(t.durationMicros)}</td>
@@ -80,7 +80,7 @@ export default function TracesPage() {
 
       {trace && !trace.ok && <Notice tone="red">{trace.message}</Notice>}
       {trace?.data && (
-        <Card title="Span waterfall" right={<Link className="text-xs font-bold underline" href="/lab/logs">logs</Link>}>
+        <Card title="Span waterfall" right={<Link className="text-xs font-medium text-link underline underline-offset-2" href="/lab/logs">logs</Link>}>
           <Waterfall trace={trace.data} />
         </Card>
       )}

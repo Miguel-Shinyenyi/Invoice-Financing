@@ -30,7 +30,7 @@ export function TriggerRunButton() {
       <button onClick={trigger} disabled={loading} className="neo-btn">
         {loading ? "Running..." : "Trigger reconciliation run"}
       </button>
-      {error && <span className="text-xs font-bold text-[var(--color-neo-red)]">{error}</span>}
+      {error && <span className="text-xs font-semibold text-[var(--red)]">{error}</span>}
     </div>
   );
 }

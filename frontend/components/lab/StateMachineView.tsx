@@ -55,12 +55,12 @@ function Machine({ title, machine }: { title: string; machine: StateMachine }) {
   const byName = new Map(placed.map((p) => [p.name, p]));
   return (
     <div className="min-w-0">
-      <h3 className="mb-1 text-xs font-black uppercase tracking-wide">{title}</h3>
-      <div className="max-w-full overflow-x-auto border-2 border-black bg-white">
+      <h3 className="mb-1 text-xs font-semibold">{title}</h3>
+      <div className="max-w-full overflow-x-auto rounded-xl bg-surface-2">
         <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} role="img" aria-label={`${title} state machine`} className="block">
           <defs>
             <marker id={`arrow-${title}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-              <path d="M0,0 L10,5 L0,10 z" fill="#000" />
+              <path d="M0,0 L10,5 L0,10 z" fill="var(--muted)" />
             </marker>
           </defs>
           {machine.transitions.map((t) => {
@@ -70,13 +70,13 @@ function Machine({ title, machine }: { title: string; machine: StateMachine }) {
             const y1 = a.y + boxH / 2;
             const x2 = b.x;
             const y2 = b.y + boxH / 2;
-            return <line key={`${t.from}-${t.to}`} x1={x1} y1={y1} x2={x2 - 2} y2={y2} stroke="#000" strokeWidth="1.6" markerEnd={`url(#arrow-${title})`} />;
+            return <line key={`${t.from}-${t.to}`} x1={x1} y1={y1} x2={x2 - 2} y2={y2} stroke="var(--muted)" strokeWidth="1.2" markerEnd={`url(#arrow-${title})`} />;
           })}
           {placed.map((p) => (
             <Fragment key={p.name}>
-              <rect x={p.x} y={p.y} width={boxW} height={boxH} fill={p.noCodePath ? "#fff" : "#ffd100"} stroke="#000" strokeWidth="2" strokeDasharray={p.noCodePath ? "5 3" : ""} />
-              <text x={p.x + boxW / 2} y={p.y + 17} textAnchor="middle" fontSize="11" fontWeight="800">{p.name}</text>
-              <text x={p.x + boxW / 2} y={p.y + 35} textAnchor="middle" fontSize="13" fontFamily="monospace" fontWeight="700" data-state={p.name} data-count={p.count}>{p.count}</text>
+              <rect x={p.x} y={p.y} width={boxW} height={boxH} rx="10" fill={p.noCodePath ? "var(--surface)" : "var(--blue-fill)"} stroke={p.noCodePath ? "var(--field-edge)" : "var(--tint)"} strokeWidth="1.2" strokeDasharray={p.noCodePath ? "5 3" : ""} />
+              <text x={p.x + boxW / 2} y={p.y + 17} textAnchor="middle" fontSize="11" fontWeight="600">{p.name}</text>
+              <text x={p.x + boxW / 2} y={p.y + 35} textAnchor="middle" fontSize="13" fontFamily="ui-monospace, SF Mono, Menlo, monospace" fontWeight="500" data-state={p.name} data-count={p.count}>{p.count}</text>
             </Fragment>
           ))}
         </svg>
@@ -105,14 +105,14 @@ export function StateMachineView() {
         <Machine title="Invoice" machine={data.invoice} />
         <Machine title="Advance" machine={data.advance} />
         <div className="min-w-0">
-          <h3 className="mb-1 text-xs font-black uppercase tracking-wide">Write side vs read model</h3>
+          <h3 className="mb-1 text-xs font-semibold">Write side vs read model</h3>
           <Table head={["Status", "Write side", "Read model", "Lag"]}>
             {statuses.map((s) => {
               const w = data.readModel.writeSide[s] ?? 0;
               const r = data.readModel.readSide[s] ?? 0;
               return (
                 <tr key={s} data-status={s}>
-                  <td className="px-3 py-1.5 font-bold">{s}</td>
+                  <td className="px-3 py-1.5 font-semibold">{s}</td>
                   <td className="px-3 py-1.5 font-mono">{w}</td>
                   <td className="px-3 py-1.5 font-mono">{r}</td>
                   <td className="px-3 py-1.5 font-mono">{w - r === 0 ? "in sync" : `${w - r > 0 ? "+" : ""}${w - r}`}</td>

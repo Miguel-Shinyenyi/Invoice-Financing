@@ -34,11 +34,11 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-[calc(100vh-57px)] items-center justify-center bg-[var(--background)] px-4">
       <form onSubmit={onSubmit} className="neo-card w-full max-w-sm space-y-4 p-8">
-        <h1 className="text-2xl font-black uppercase tracking-tight text-black">Invoice Financing</h1>
-        <p className="font-medium text-black">Sign in to the admin dashboard</p>
+        <h1 className="text-2xl font-semibold tracking-tight text-ink">Invoice Financing</h1>
+        <p className="font-medium text-ink">Sign in to the admin dashboard</p>
 
         <div className="space-y-1">
-          <label htmlFor="username" className="text-sm font-bold uppercase tracking-wide text-black">
+          <label htmlFor="username" className="text-sm font-semibold text-ink">
             Username
           </label>
           <input
@@ -51,7 +51,7 @@ export default function LoginPage() {
         </div>
 
         <div className="space-y-1">
-          <label htmlFor="password" className="text-sm font-bold uppercase tracking-wide text-black">
+          <label htmlFor="password" className="text-sm font-semibold text-ink">
             Password
           </label>
           <input
@@ -64,9 +64,9 @@ export default function LoginPage() {
           />
         </div>
 
-        {error && <p className="font-bold text-[var(--color-neo-red)]">{error}</p>}
+        {error && <p className="font-semibold text-[var(--red)]">{error}</p>}
 
-        <button type="submit" disabled={submitting} className="neo-btn w-full bg-[var(--color-neo-yellow)]">
+        <button type="submit" disabled={submitting} className="neo-btn w-full tone-yellow">
           {submitting ? "Signing in..." : "Sign in"}
         </button>
       </form>

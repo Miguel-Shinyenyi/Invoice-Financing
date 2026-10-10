@@ -5,7 +5,7 @@
 
 import { Fragment } from "react";
 
-const PALETTE = ["#2f6fed", "#ff3ea5", "#00c853", "#ff8a00", "#000000", "#ffd100"];
+const PALETTE = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)", "var(--chart-6)"];
 const DASHES = ["", "6 3", "2 3", "8 3 2 3", "", "4 2"];
 
 export interface Series {
@@ -28,7 +28,7 @@ function fmt(v: number): string {
 
 function Legend({ names }: { names: string[] }) {
   return (
-    <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs font-bold">
+    <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs font-semibold">
       {names.map((n, i) => (
         <li key={n} className="flex items-center gap-1">
           <svg width="22" height="8" aria-hidden>
@@ -53,13 +53,13 @@ export function LineChart({ title, unit = "", series, xLabel = "second" }: { tit
   const empty = series.every((s) => s.values.every((v) => v === null));
   return (
     <figure className="min-w-0">
-      <figcaption className="mb-1 text-xs font-black uppercase tracking-wide">
+      <figcaption className="mb-1 text-xs font-semibold">
         {title} {unit && <span className="font-medium normal-case">({unit})</span>}
       </figcaption>
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={title} className="h-auto w-full border-2 border-black bg-white">
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={title} className="h-auto w-full rounded-xl bg-surface-2">
         {[0, 0.5, 1].map((f) => (
           <Fragment key={f}>
-            <line x1={L} x2={W - 6} y1={y(max * f)} y2={y(max * f)} stroke="#000" strokeOpacity="0.15" />
+            <line x1={L} x2={W - 6} y1={y(max * f)} y2={y(max * f)} stroke="var(--hairline)" />
             <text x={L - 4} y={y(max * f) + 3} textAnchor="end" fontSize="9" fontFamily="monospace">{fmt(max * f)}</text>
           </Fragment>
         ))}
@@ -80,12 +80,12 @@ export function LineChart({ title, unit = "", series, xLabel = "second" }: { tit
               {segments.map((d, i) => (
                 <path key={i} d={d} fill="none" stroke={PALETTE[si % PALETTE.length]} strokeWidth="2.5" strokeDasharray={DASHES[si % DASHES.length]} />
               ))}
-              {last && <circle cx={last[0]} cy={last[1]} r="3" fill={PALETTE[si % PALETTE.length]} stroke="#000" />}
+              {last && <circle cx={last[0]} cy={last[1]} r="3" fill={PALETTE[si % PALETTE.length]} stroke="var(--surface)" strokeWidth="1.5" />}
             </Fragment>
           );
         })}
         <text x={W / 2} y={H - 5} textAnchor="middle" fontSize="9" fontFamily="monospace">{xLabel} →</text>
-        {empty && <text x={W / 2} y={H / 2} textAnchor="middle" fontSize="11" fontWeight="bold">no data yet</text>}
+        {empty && <text x={W / 2} y={H / 2} textAnchor="middle" fontSize="11" fill="var(--muted)">no data yet</text>}
       </svg>
       <Legend names={series.map((s) => s.name)} />
     </figure>
@@ -109,13 +109,13 @@ export function StackedBars({ title, unit = "", series, xLabel = "second" }: { t
   const bw = Math.max(2, (W - L - 6) / n - 2);
   return (
     <figure className="min-w-0">
-      <figcaption className="mb-1 text-xs font-black uppercase tracking-wide">
+      <figcaption className="mb-1 text-xs font-semibold">
         {title} {unit && <span className="font-medium normal-case">({unit})</span>}
       </figcaption>
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={title} className="h-auto w-full border-2 border-black bg-white">
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={title} className="h-auto w-full rounded-xl bg-surface-2">
         {[0, 0.5, 1].map((f) => (
           <Fragment key={f}>
-            <line x1={L} x2={W - 6} y1={6 + (1 - f) * (H - B - 6)} y2={6 + (1 - f) * (H - B - 6)} stroke="#000" strokeOpacity="0.15" />
+            <line x1={L} x2={W - 6} y1={6 + (1 - f) * (H - B - 6)} y2={6 + (1 - f) * (H - B - 6)} stroke="var(--hairline)" />
             <text x={L - 4} y={6 + (1 - f) * (H - B - 6) + 3} textAnchor="end" fontSize="9" fontFamily="monospace">{fmt(max * f)}</text>
           </Fragment>
         ))}
@@ -129,7 +129,7 @@ export function StackedBars({ title, unit = "", series, xLabel = "second" }: { t
                 const yTop = 6 + (H - B - 6) - ((acc + v) / max) * (H - B - 6);
                 acc += v;
                 return h > 0 ? (
-                  <rect key={s.name} x={L + i * (bw + 2)} y={yTop} width={bw} height={h} fill={PALETTE[si % PALETTE.length]} stroke="#000" strokeWidth="0.6">
+                  <rect key={s.name} x={L + i * (bw + 2)} y={yTop} width={bw} height={h} fill={PALETTE[si % PALETTE.length]}>
                     <title>{`${s.name}: ${v} (${xLabel} ${i + 1})`}</title>
                   </rect>
                 ) : null;
@@ -138,7 +138,7 @@ export function StackedBars({ title, unit = "", series, xLabel = "second" }: { t
           );
         })}
         <text x={W / 2} y={H - 5} textAnchor="middle" fontSize="9" fontFamily="monospace">{xLabel} →</text>
-        {totals.every((t) => t === 0) && <text x={W / 2} y={H / 2} textAnchor="middle" fontSize="11" fontWeight="bold">no data yet</text>}
+        {totals.every((t) => t === 0) && <text x={W / 2} y={H / 2} textAnchor="middle" fontSize="11" fill="var(--muted)">no data yet</text>}
       </svg>
       <Legend names={series.map((s) => s.name)} />
     </figure>
@@ -150,12 +150,12 @@ export function BarList({ title, items, unit = "" }: { title: string; items: Arr
   const max = Math.max(1, ...items.map((i) => i.value));
   return (
     <figure className="min-w-0">
-      <figcaption className="mb-2 text-xs font-black uppercase tracking-wide">{title}</figcaption>
+      <figcaption className="mb-2 text-xs font-semibold">{title}</figcaption>
       <ul className="space-y-1.5">
         {items.map((it, i) => (
-          <li key={it.label} className="grid grid-cols-[6.5rem_1fr_auto] items-center gap-2 text-xs font-bold">
+          <li key={it.label} className="grid grid-cols-[6.5rem_1fr_auto] items-center gap-2 text-xs font-semibold">
             <span className="truncate">{it.label}</span>
-            <span className="block h-4 border-2 border-black bg-white">
+            <span className="block h-4 rounded-xl bg-surface-2">
               <span className="block h-full" style={{ width: `${(it.value / max) * 100}%`, background: PALETTE[i % PALETTE.length] }} />
             </span>
             <span className="font-mono">{fmt(it.value)}{unit}</span>
@@ -180,13 +180,13 @@ export function Histogram({ title, values, lo = 0, hi = 1, buckets = 10 }: { tit
   const bw = (W - 30) / buckets;
   return (
     <figure className="min-w-0">
-      <figcaption className="mb-1 text-xs font-black uppercase tracking-wide">{title}</figcaption>
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={title} className="h-auto w-full border-2 border-black bg-white">
+      <figcaption className="mb-1 text-xs font-semibold">{title}</figcaption>
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={title} className="h-auto w-full rounded-xl bg-surface-2">
         {counts.map((c, i) => {
           const h = (c / max) * (H - 36);
           return (
             <Fragment key={i}>
-              <rect x={24 + i * bw} y={H - 22 - h} width={bw - 3} height={h} fill={PALETTE[0]} stroke="#000" strokeWidth="0.8" />
+              <rect x={24 + i * bw} y={H - 22 - h} width={bw - 3} height={h} fill={PALETTE[0]} />
               {c > 0 && <text x={24 + i * bw + (bw - 3) / 2} y={H - 25 - h} textAnchor="middle" fontSize="9" fontFamily="monospace">{c}</text>}
               <text x={24 + i * bw + (bw - 3) / 2} y={H - 8} textAnchor="middle" fontSize="8" fontFamily="monospace">
                 {(lo + (i * (hi - lo)) / buckets).toFixed(1)}
@@ -194,7 +194,7 @@ export function Histogram({ title, values, lo = 0, hi = 1, buckets = 10 }: { tit
             </Fragment>
           );
         })}
-        {values.length === 0 && <text x={W / 2} y={H / 2} textAnchor="middle" fontSize="11" fontWeight="bold">no data yet</text>}
+        {values.length === 0 && <text x={W / 2} y={H / 2} textAnchor="middle" fontSize="11" fill="var(--muted)">no data yet</text>}
       </svg>
     </figure>
   );

@@ -40,34 +40,34 @@ export function ScenarioCatalog({ group }: { group?: string }) {
     <div className="space-y-5">
       {groups.map((g) => (
         <section key={g}>
-          <h3 className="mb-2 text-sm font-black uppercase tracking-wide">{g}</h3>
+          <h3 className="mb-2 text-sm font-semibold">{g}</h3>
           <div className="grid gap-3 md:grid-cols-2">
             {shown.filter((s) => s.group === g).map((s) => (
               <article key={s.id} id={s.id} className="neo-card min-w-0 p-3">
                 <div className="flex flex-wrap items-start justify-between gap-2">
-                  <h4 className="text-sm font-black">{s.title}</h4>
+                  <h4 className="text-sm font-semibold">{s.title}</h4>
                   {s.knownGap && GAP_ANCHORS[s.knownGap] && (
                     <KnownGap n={s.knownGap} anchor={GAP_ANCHORS[s.knownGap].anchor} doc={GAP_ANCHORS[s.knownGap].doc} />
                   )}
                 </div>
                 <dl className="mt-2 space-y-1.5 text-xs font-medium">
-                  <div><dt className="font-black uppercase">You will see</dt><dd>{s.visitorSees}</dd></div>
+                  <div><dt className="font-semibold">You will see</dt><dd>{s.visitorSees}</dd></div>
                   <div>
-                    <dt className="font-black uppercase">The engine</dt>
+                    <dt className="font-semibold">The engine</dt>
                     <dd>
                       <ul className="list-disc pl-4">
                         {s.engineDoes.map((e) => (
-                          <li key={`${e.class}.${e.method}`}><code className="font-mono font-bold">{e.class}.{e.method}</code>: {e.what}</li>
+                          <li key={`${e.class}.${e.method}`}><code className="font-mono font-semibold">{e.class}.{e.method}</code>: {e.what}</li>
                         ))}
                       </ul>
                     </dd>
                   </div>
-                  <div><dt className="font-black uppercase">Look for</dt><dd>{s.lookFor}</dd></div>
-                  <div><dt className="font-black uppercase">The honest limit</dt><dd>{s.honestLimit}</dd></div>
+                  <div><dt className="font-semibold">Look for</dt><dd>{s.lookFor}</dd></div>
+                  <div><dt className="font-semibold">The honest limit</dt><dd>{s.honestLimit}</dd></div>
                 </dl>
                 <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
                   <DocLink path={s.doc.path} anchor={s.doc.anchor}>{s.doc.label}</DocLink>
-                  <Link href={s.action.route} className="neo-chip bg-[var(--color-neo-yellow)]">Try it</Link>
+                  <Link href={s.action.route} className="neo-btn min-h-8 px-3.5 text-[13px]">Try it</Link>
                 </div>
               </article>
             ))}

@@ -43,10 +43,10 @@ export function ResolveMismatchForm({ mismatchId, kind = "mismatches" }: { misma
         placeholder="Resolution reason"
         className="neo-input min-w-0 flex-1 text-sm"
       />
-      <button onClick={resolve} disabled={loading} className="neo-btn bg-[var(--color-neo-green)] text-black">
+      <button onClick={resolve} disabled={loading} className="neo-btn tone-green">
         {loading ? "Resolving..." : "Resolve"}
       </button>
-      {error && <span className="text-xs font-bold text-[var(--color-neo-red)]">{error}</span>}
+      {error && <span className="text-xs font-semibold text-[var(--red)]">{error}</span>}
     </div>
   );
 }

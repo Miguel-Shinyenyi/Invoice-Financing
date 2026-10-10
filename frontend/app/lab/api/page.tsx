@@ -34,7 +34,7 @@ export default function ApiPage() {
       <PageHeader title="API" subtitle="The sandbox's real endpoints, and the lab endpoints this UI drives. Every action in the Lab has a “Show the request” disclosure with the real method, path, headers, body and an equivalent curl." />
       <Card title="Swagger UI">
         {swagger ? (
-          <p className="text-sm font-medium">The sandbox backend serves springdoc&apos;s Swagger UI: <a className="font-bold underline" href={swagger} target="_blank" rel="noreferrer">{swagger}</a>. Use “Authorize” with a token from <code className="font-mono">POST /lab/personas/ADMIN/token</code> to call the real endpoints.</p>
+          <p className="text-sm font-medium">The sandbox backend serves springdoc&apos;s Swagger UI: <a className="font-medium text-link underline underline-offset-2" href={swagger} target="_blank" rel="noreferrer">{swagger}</a>. Use “Authorize” with a token from <code className="font-mono">POST /lab/personas/ADMIN/token</code> to call the real endpoints.</p>
         ) : (
           <p className="text-sm font-medium">No <code className="font-mono">LAB_SWAGGER_URL</code> is set for this deployment, so there is no link to the sandbox&apos;s Swagger UI. The compose file sets it to <code className="font-mono">http://localhost:8080/swagger-ui/index.html</code>.</p>
         )}
@@ -42,7 +42,7 @@ export default function ApiPage() {
       </Card>
       <Card title="Lab endpoints (public, no login)">
         <Table head={["Method", "Path", "What it does"]}>
-          {ENDPOINTS.map(([m, p, d]) => (<tr key={p}><td className="px-3 py-1.5 font-mono text-xs font-black">{m}</td><td className="px-3 py-1.5 font-mono text-xs">{p}</td><td className="px-3 py-1.5 text-xs">{d}</td></tr>))}
+          {ENDPOINTS.map(([m, p, d]) => (<tr key={p}><td className="px-3 py-1.5 font-mono text-xs font-semibold">{m}</td><td className="px-3 py-1.5 font-mono text-xs">{p}</td><td className="px-3 py-1.5 text-xs">{d}</td></tr>))}
         </Table>
         <p className="mt-2 text-xs font-medium">From a terminal, reach them through the frontend at <code className="font-mono">/app/api/lab/&lt;path without /lab&gt;</code>; real endpoints go through <code className="font-mono">/app/api/lab-real/…</code> with the persona cookie.</p>
       </Card>

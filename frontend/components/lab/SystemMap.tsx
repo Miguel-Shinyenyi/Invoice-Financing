@@ -66,12 +66,12 @@ export function SystemMap() {
         key={`${d.id}-${n?.count ?? "x"}`}
         data-node={d.id}
         data-count={n?.count ?? ""}
-        className={`min-w-0 border-2 border-black bg-white p-2 ${changed[d.id] ? "lab-flash" : ""}`}
+        className={`min-w-0 rounded-xl bg-surface-2 p-2 ${changed[d.id] ? "lab-flash" : ""}`}
       >
-        <div className="text-xs font-black uppercase">{d.title}</div>
-        <div className="font-mono text-lg font-black">{n ? fmtNum(n.count) : "…"} <span className="text-[11px] font-bold">{d.unit}</span></div>
+        <div className="text-xs font-semibold">{d.title}</div>
+        <div className="font-mono text-lg font-semibold">{n ? fmtNum(n.count) : "…"} <span className="text-[11px] font-semibold">{d.unit}</span></div>
         <div className="text-[11px] font-medium leading-tight">{d.what}</div>
-        {n?.lastEventAt && <div className="mt-1 text-[10px] font-medium opacity-70">last {fmtTime(n.lastEventAt)}</div>}
+        {n?.lastEventAt && <div className="mt-1 text-[10px] font-medium text-muted">last {fmtTime(n.lastEventAt)}</div>}
       </li>
     );
   };
@@ -85,12 +85,12 @@ export function SystemMap() {
         {FLOW.map((d, i) => (
           <li key={d.id} className="relative list-none">
             <ul className="contents">{box(d)}</ul>
-            {i < FLOW.length - 1 && <span aria-hidden className="absolute -bottom-2 left-1/2 z-10 text-lg font-black leading-none lg:hidden">↓</span>}
-            {i < FLOW.length - 1 && i % 4 !== 3 && <span aria-hidden className="absolute -right-2.5 top-1/2 z-10 hidden -translate-y-1/2 text-lg font-black lg:block">→</span>}
+            {i < FLOW.length - 1 && <span aria-hidden className="absolute -bottom-2 left-1/2 z-10 text-lg font-semibold leading-none lg:hidden">↓</span>}
+            {i < FLOW.length - 1 && i % 4 !== 3 && <span aria-hidden className="absolute -right-2.5 top-1/2 z-10 hidden -translate-y-1/2 text-lg font-semibold lg:block">→</span>}
           </li>
         ))}
       </ol>
-      <h3 className="mb-2 mt-5 text-xs font-black uppercase tracking-wide">Around it</h3>
+      <h3 className="mb-2 mt-5 text-xs font-semibold">Around it</h3>
       <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">{LOOPS.map(box)}</ul>
     </Card>
   );
