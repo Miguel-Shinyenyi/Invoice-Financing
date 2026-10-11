@@ -62,7 +62,7 @@ export default function TracesPage() {
       </Card>
 
       {list && !list.ok && <Notice tone="red">{list.message}</Notice>}
-      {list?.data && (
+      {list?.ok && list.data && (
         <Card title={`Traces (${list.data.length})`}>
           <Table head={["Root operation", "Services", "Spans", "Duration", ""]} empty={list.data.length === 0 ? "No traces matched. Traces appear a few seconds after a request; a filter finds only requests whose log lines carry a trace id." : undefined}>
             {list.data.map((t) => (
@@ -79,7 +79,7 @@ export default function TracesPage() {
       )}
 
       {trace && !trace.ok && <Notice tone="red">{trace.message}</Notice>}
-      {trace?.data && (
+      {trace?.ok && trace.data && (
         <Card title="Span waterfall" right={<Link className="text-xs font-medium text-link underline underline-offset-2" href="/lab/logs">logs</Link>}>
           <Waterfall trace={trace.data} />
         </Card>
