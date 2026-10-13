@@ -1,0 +1,38 @@
+# Settlement engine
+
+> An idempotent settlement and reconciliation engine: it moves money between ledger accounts exactly once even when the network lies, and flags what it cannot resolve for a human. This folder documents it. A public sandbox, the Lab, runs the real engine on fake data, and an MCP server lets an agent read it.
+
+Links are relative to this folder. Start with the first three.
+
+## Read first
+
+- [Reconciliation and idempotency](reconciliation.md): the core problem, the settlement state machine, how reconciliation works, and the six known gaps in the engine.
+- [Lab](lab.md): the sandbox. A separate stack with deterministic seed data where the real engine runs, with faults injected only at its boundaries.
+- [MCP server](mcp.md): the MCP server over the Lab. Ten read tools, three write tools that are off by default, evals, and the safety rules.
+
+## The Lab sandbox and the MCP server
+
+- [MCP server README](../mcp-server/README.md): install, run, the JSON for Claude Desktop and Claude Code, the tool table, tests and evals.
+- [Lab seed](../lab/seed/README.md): the fixed ids, balances and settlements the sandbox loads, including the one drifted account and the one open mismatch.
+- [Scenario catalog](../lab/seed/scenarios.json): 28 scenarios, each with what the engine does and the honest limit.
+- Safety: the MCP server only talks to the Lab. It refuses the staging host and any target that does not answer `GET /lab/status` as a Lab sandbox. Write tools are absent unless `MCP_ALLOW_WRITES=true`.
+
+## API and behaviour
+
+- [Backend](backend.md): every endpoint, component and decision. The OpenAPI document is served live at `/v3/api-docs` by the sandbox backend.
+- [Database](database.md): tables, constraints and migrations.
+- [Kafka events](kafka-events.md): topics, event schemas and consumers.
+- [Security](security.md): authentication, roles, row-level access and the Lab and MCP guards.
+
+## Operating it
+
+- [Observability](observability.md): metrics, logs, traces and alerts.
+- [Testing](testing.md): test strategy and counts, including the chaos and load tests.
+- [Fraud detection](fraud-detection.md): the Python scoring service and its fail-open rule.
+- [Frontend](frontend.md): the dashboard and the Lab UI.
+- [CI/CD](cicd.md), [Kubernetes](kubernetes.md), [Server setup](server-setup.md), [Storage](storage.md), [Architecture](architecture.md): deployment and infrastructure.
+
+## Optional
+
+- [Doc maintenance rules](DOCS_MAINTENANCE.md): how these docs are kept current.
+- [Design system](design-apple.md): the dashboard's visual rules.
