@@ -19,6 +19,7 @@ const ROUTES: Array<[string, string]> = [
   ["/app/lab/audit", "audit"],
   ["/app/lab/data", "data"],
   ["/app/lab/correlate", "correlate"],
+  ["/app/lab/agent", "agent"],
   ["/app/lab/api", "api"],
 ];
 
