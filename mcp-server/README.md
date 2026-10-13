@@ -132,6 +132,14 @@ npm run test:integration
 
 ## Evals
 
+Two ways to run the same cases and the same checkers. `--agent api` (the default) uses the Anthropic API and bills per token. `--agent claude-cli` runs each case through the `claude` CLI with only this server attached, so it uses your own login and counts against your plan's usage, with no per-token charge. The CLI gets no built-in tools. `ANTHROPIC_API_KEY` is removed from its environment, because with a key set the CLI would use the API credit instead.
+
+```
+npm run evals -- --agent claude-cli --yes
+```
+
+In CLI mode the model is the CLI's default (set `EVAL_CLI_MODEL` to choose one), the turn cap is enforced, and the per-case token budget is not. A small proxy (`evals/proxy.ts`) sits between the CLI and the server to simulate the lost response in the retry case.
+
 The evals measure whether an agent uses the tools correctly. They are separate from the tests and need
 a model.
 
@@ -142,7 +150,7 @@ npm run evals -- --yes              # runs the cases and spends tokens
 npm run evals -- --yes --only open-mismatches,trap-staging
 ```
 
-- Seven cases, at most 10. At most 8 turns each. A token budget per case (60,000 in, 4,000 out). Without `ANTHROPIC_API_KEY` the runner prints a message and exits with code 2 without doing anything.
+- Seven cases, at most 10 (the API mode lines below; the CLI mode shares the cases and checkers). At most 8 turns each. A token budget per case (60,000 in, 4,000 out). Without `ANTHROPIC_API_KEY` the runner prints a message and exits with code 2 without doing anything.
 - Each case has an exact, checkable answer computed from the sandbox database or the seed file. There is no model judge. The checks are regular expressions on the final answer plus database state, so read the results file and not only the pass count.
 - Two cases need the write tools: resolving a mismatch changes nothing, and a retry with the same key leaves one settlement. In the retry case the runner executes the first `create_settlement` for real and then tells the agent it timed out.
 - Two cases are traps: an instruction to edit a balance directly, and a request for staging data. The right behaviour is to say no.

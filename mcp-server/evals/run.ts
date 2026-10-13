@@ -5,6 +5,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { LIVE_URL, resetLab } from "../support/labData.js";
 import { LIMITS, runAgent, type AgentResult } from "./agent.js";
+import { AgentRunError, runCliAgent, type CliResult } from "./cliAgent.js";
 import { CASES, type EvalCase } from "./cases.js";
 
 const root = resolve(import.meta.dirname, "..");
@@ -17,8 +18,21 @@ const PRICE_OUT = Number(process.env.EVAL_PRICE_OUTPUT_PER_MTOK ?? "15");
 
 const args = process.argv.slice(2);
 const yes = args.includes("--yes");
+const agentIdx = args.indexOf("--agent");
+const agentKind = agentIdx >= 0 ? (args[agentIdx + 1] ?? "") : "api";
+if (agentKind !== "api" && agentKind !== "claude-cli") {
+  console.error('--agent must be "api" (Anthropic API, billed per token) or "claude-cli" (the claude CLI, your own login).');
+  process.exit(2);
+}
+const cli = agentKind === "claude-cli";
+// claude-cli uses the CLI's own default model unless EVAL_CLI_MODEL names one.
+const CLI_MODEL = process.env.EVAL_CLI_MODEL || undefined;
 const onlyIdx = args.indexOf("--only");
 const only = onlyIdx >= 0 ? (args[onlyIdx + 1] ?? "").split(",").filter(Boolean) : null;
+
+function isCli(r: AgentResult): r is CliResult {
+  return "notionalUsd" in r;
+}
 
 function usd(n: number): string {
   return `$${n.toFixed(2)}`;
@@ -74,39 +88,52 @@ interface CaseResult {
   stopReason: AgentResult["stopReason"];
   answer: string;
   error?: string;
+  /** claude-cli only: the model the CLI reported, and the API-equivalent cost (not billed per token). */
+  model?: string;
+  notionalUsd?: number;
 }
 
 async function main(): Promise<void> {
-  if (!process.env.ANTHROPIC_API_KEY) {
+  if (!cli && !process.env.ANTHROPIC_API_KEY) {
     console.error("ANTHROPIC_API_KEY is not set, so the evals did nothing. Set it in your environment (never in a file) and run again.");
     process.exit(2);
   }
 
   const cases = selected();
-  const { upper, typical } = estimate(cases);
-  console.log(`Evals: ${cases.length} case(s), model ${MODEL}, up to ${LIMITS.maxTurns} turns each.`);
-  console.log(
-    `Token budget per case: ${LIMITS.maxInputTokens.toLocaleString()} in, ${LIMITS.maxOutputTokens.toLocaleString()} out. ` +
-      `Estimated cost: about ${usd(typical)} typical, at most ${usd(upper)}.`,
-  );
-  console.log(`Prices used: ${usd(PRICE_IN)} in and ${usd(PRICE_OUT)} out per million tokens (EVAL_PRICE_INPUT_PER_MTOK, EVAL_PRICE_OUTPUT_PER_MTOK). These are assumptions: check current pricing.`);
-  if (!yes) {
-    console.log("Nothing was run. Add --yes to run these cases and spend the tokens.");
-    return;
+  if (cli) {
+    console.log(`Evals: ${cases.length} case(s) through the claude CLI (${CLI_MODEL ?? "the CLI's default model"}), up to ${LIMITS.maxTurns} turns each.`);
+    console.log("No per-token charge: the CLI uses your own login, so this counts against your plan's usage. ANTHROPIC_API_KEY is not passed to it.");
+    console.log("The per-case token budget is not enforced in this mode. The turn cap is. The CLI reports an API-equivalent cost, which is printed at the end for scale.");
+    if (!yes) {
+      console.log("Nothing was run. Add --yes to run these cases.");
+      return;
+    }
+  } else {
+    const { upper, typical } = estimate(cases);
+    console.log(`Evals: ${cases.length} case(s), model ${MODEL}, up to ${LIMITS.maxTurns} turns each.`);
+    console.log(
+      `Token budget per case: ${LIMITS.maxInputTokens.toLocaleString()} in, ${LIMITS.maxOutputTokens.toLocaleString()} out. ` +
+        `Estimated cost: about ${usd(typical)} typical, at most ${usd(upper)}.`,
+    );
+    console.log(`Prices used: ${usd(PRICE_IN)} in and ${usd(PRICE_OUT)} out per million tokens (EVAL_PRICE_INPUT_PER_MTOK, EVAL_PRICE_OUTPUT_PER_MTOK). These are assumptions: check current pricing.`);
+    if (!yes) {
+      console.log("Nothing was run. Add --yes to run these cases and spend the tokens.");
+      return;
+    }
   }
   if (!(await labIsUp())) {
     console.error(`The Lab sandbox is not reachable at ${LIVE_URL}. Start it with: docker compose -f infra/docker-compose.lab.yml up -d`);
     process.exit(2);
   }
 
-  const anthropic = new Anthropic();
+  const anthropic = cli ? null : new Anthropic();
   // Start from the seed so the expected answers hold. A refusal because of the reset cooldown is fine.
   const reset = await resetLab();
   console.log(reset ? "Lab reset to the seed." : "Lab reset refused (cooldown). Using the current state.");
   await new Promise((r) => setTimeout(r, 2_000));
 
-  const readServer = await startServer(false);
-  const writeServer = cases.some((c) => c.writes) ? await startServer(true) : null;
+  const readServer = cli ? null : await startServer(false);
+  const writeServer = !cli && cases.some((c) => c.writes) ? await startServer(true) : null;
   const results: CaseResult[] = [];
   // An API error (no credit, bad key, rate limit) says nothing about the tools. It stops the run
   // and is never recorded as a failed case.
@@ -118,7 +145,9 @@ async function main(): Promise<void> {
       console.log(`\n> ${c.id}: ${c.title}`);
       try {
         const { prompt, state, simulateTimeoutOn } = await c.setup();
-        const run = await runAgent(anthropic, MODEL, c.writes ? writeServer! : readServer, prompt, simulateTimeoutOn);
+        const run = cli
+          ? await runCliAgent({ prompt, labUrl: LIVE_URL, writes: c.writes, simulateTimeoutOn, model: CLI_MODEL })
+          : await runAgent(anthropic!, MODEL, c.writes ? writeServer! : readServer!, prompt, simulateTimeoutOn);
         const verdict = await c.check(run, state);
         const stopped = run.stopReason !== "answered";
         results.push({
@@ -132,8 +161,13 @@ async function main(): Promise<void> {
           outputTokens: run.outputTokens,
           stopReason: run.stopReason,
           answer: run.answer,
+          ...(isCli(run) ? { model: run.model, notionalUsd: run.notionalUsd } : {}),
         });
       } catch (err) {
+        if (err instanceof AgentRunError) {
+          apiError = err.message;
+          break;
+        }
         if (err instanceof Anthropic.APIError) {
           const detail = (err.error as { error?: { message?: string } } | undefined)?.error?.message ?? err.message;
           apiError = `HTTP ${err.status ?? "?"}: ${detail}`;
@@ -147,12 +181,12 @@ async function main(): Promise<void> {
       for (const n of last.notes) console.log(`    ${n}`);
     }
   } finally {
-    await readServer.close();
+    await readServer?.close();
     await writeServer?.close();
   }
 
   if (apiError) {
-    console.error(`\nThe Anthropic API refused the call, so the evals did not run. No case was scored and no results file was written.\n  ${apiError}`);
+    console.error(`\nThe agent could not run, so the evals did not run. No case was scored and no results file was written.\n  ${apiError}`);
     process.exit(3);
   }
 
@@ -163,13 +197,18 @@ async function main(): Promise<void> {
   for (const r of results) {
     console.log(`${r.id.padEnd(25)} ${(r.pass ? "PASS" : "FAIL").padEnd(7)} ${String(r.turns).padEnd(6)} ${String(r.inputTokens + r.outputTokens).padEnd(7)} ${r.tools.join(" > ")}`);
   }
-  console.log(`\n${results.filter((r) => r.pass).length} of ${results.length} passed. ${total.toLocaleString()} tokens, about ${usd(cost)} at the prices above.`);
+  const notional = results.reduce((a, r) => a + (r.notionalUsd ?? 0), 0);
+  const modelUsed = cli ? (results.find((r) => r.model)?.model ?? CLI_MODEL ?? "claude-cli") : MODEL;
+  console.log(
+    `\n${results.filter((r) => r.pass).length} of ${results.length} passed. ${total.toLocaleString()} tokens. ` +
+      (cli ? `Not billed per token. API-equivalent cost reported by the CLI: about ${usd(notional)}.` : `About ${usd(cost)} at the prices above.`),
+  );
 
   const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "").replace(/^(\d{8})/, "$1-");
   const dir = resolve(root, "evals", "results");
   mkdirSync(dir, { recursive: true });
-  const file = resolve(dir, `${new Date().toISOString().slice(0, 10)}-${stamp.slice(9)}-${MODEL.replace(/[^a-z0-9.-]/gi, "_")}.json`);
-  writeFileSync(file, JSON.stringify({ date: new Date().toISOString(), model: MODEL, labUrl: LIVE_URL, limits: LIMITS, passed: results.filter((r) => r.pass).length, total: results.length, tokens: total, approxCostUsd: Number(cost.toFixed(4)), results }, null, 2) + "\n");
+  const file = resolve(dir, `${new Date().toISOString().slice(0, 10)}-${stamp.slice(9)}-${cli ? "cli-" : ""}${modelUsed.replace(/[^a-z0-9.-]/gi, "_")}.json`);
+  writeFileSync(file, JSON.stringify({ date: new Date().toISOString(), agent: agentKind, model: modelUsed, labUrl: LIVE_URL, limits: LIMITS, passed: results.filter((r) => r.pass).length, total: results.length, tokens: total, approxCostUsd: Number((cli ? notional : cost).toFixed(4)), billedPerToken: !cli, results }, null, 2) + "\n");
   console.log(`Results written to ${file.replace(root + "/", "")}`);
   process.exit(results.every((r) => r.pass) ? 0 : 1);
 }

@@ -8,7 +8,7 @@ Links are relative to this folder. Start with the first three.
 
 - [Reconciliation and idempotency](reconciliation.md): the core problem, the settlement state machine, how reconciliation works, and the six known gaps in the engine.
 - [Lab](lab.md): the sandbox. A separate stack with deterministic seed data where the real engine runs, with faults injected only at its boundaries.
-- [MCP server](mcp.md): the MCP server over the Lab. Ten read tools, three write tools that are off by default, evals, and the safety rules.
+- [MCP server](mcp.md): the MCP server over the Lab. Ten read tools, three write tools that are off by default, evals (API or claude CLI), the Lab UI Agent page, and the safety rules.
 
 ## The Lab sandbox and the MCP server
 

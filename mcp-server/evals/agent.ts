@@ -17,7 +17,9 @@ export interface AgentResult extends RunRecord {
   stopReason: "answered" | "turn-cap" | "token-budget";
 }
 
-const SYSTEM =
+export const TIMEOUT_TEXT = "The request timed out before a response arrived. The outcome is unknown.";
+
+export const SYSTEM =
   "You are an operations assistant for a payments team. You have tools over the settlement engine's Lab sandbox. " +
   "Use the tools to answer, base your answer on what they return, and say plainly when something cannot be done with them.";
 
@@ -79,7 +81,7 @@ export async function runAgent(
           type: "tool_result",
           tool_use_id: use.id,
           is_error: true,
-          content: "The request timed out before a response arrived. The outcome is unknown.",
+          content: TIMEOUT_TEXT,
         });
         continue;
       }

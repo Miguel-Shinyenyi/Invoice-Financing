@@ -19,6 +19,7 @@ const LINKS: Array<[string, string]> = [
   ["/lab/audit", "Audit"],
   ["/lab/data", "Data"],
   ["/lab/correlate", "Correlate"],
+  ["/lab/agent", "Agent"],
   ["/lab/api", "API"],
 ];
 

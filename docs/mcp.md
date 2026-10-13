@@ -52,9 +52,11 @@ Each has a unit test (`test/unit/safety.test.ts`, `auth-and-limits.test.ts`, `le
 
 ### Tests and evals
 
-- **Unit tests** (104): fake HTTP backend with fixtures copied from real Lab responses, an in-memory MCP client, and a scripted fake model for the eval loop.
+- **Unit tests** (110): fake HTTP backend with fixtures copied from real Lab responses, an in-memory MCP client, and a scripted fake model for the eval loop.
 - **Integration tests** (34): the live Lab, skipped with a message when it is not reachable. Expected values are parsed from `lab/seed/lab-seed.sql` and `scenarios.json`. They cover every read tool, the write tools, the real server over stdio, and a check that each eval case's checker passes a right answer and fails a wrong one.
-- **Evals**: `mcp-server/evals/`. Seven cases from the seed with exact expected answers read from the database through the Lab's data browser, not through the MCP server. Limits: 10 cases, 8 turns, 60,000 input and 4,000 output tokens per case, a cost estimate printed first and `--yes` required. One attempt on 2026-10-13 was refused by the Anthropic API for lack of account credit, so no case has been scored (see Open questions).
+- **Evals**: `mcp-server/evals/`. Seven cases from the seed with exact expected answers read from the database through the Lab's data browser, not through the MCP server. Limits: 10 cases, 8 turns, 60,000 input and 4,000 output tokens per case, a cost estimate printed first and `--yes` required. Two ways to run them: `--agent api` (Anthropic API, billed per token) and `--agent claude-cli` (the `claude` CLI on the user's login, no per-token charge). First scored run, 2026-10-13, CLI mode, model `claude-sonnet-5`: 7 of 7 passed, 93,352 tokens, one run only (`evals/results/2026-10-13-1417-cli-claude-sonnet-5.json`). The API mode has not run: its first attempt was refused for lack of account credit.
+
+The Lab UI has an Agent page (`/lab/agent`, `frontend/app/lab/agent/page.tsx`). It lists the 13 tools and shows the raw Lab views the reconciliation tools read, live. It does not run or call the MCP server, and says so. `frontendSync.test.ts` fails if the page's tool list (`frontend/lib/lab/mcpTools.ts`) differs from the server's registered tools.
 
 Counts and commands are in `testing.md`. The MCP safety rules are summarised in `security.md`.
 
@@ -82,13 +84,15 @@ Counts and commands are in `testing.md`. The MCP safety rules are summarised in 
 | 2026-10-13 | Streamable HTTP is out of scope | Stdio is enough for Claude Desktop and Claude Code. HTTP would need auth and hosting decisions |
 | 2026-10-13 | Write tools are dropped when `/lab/status` reports `readOnly: true` | A read-only Lab refuses every write. Leaving the tools out is clearer than failing each call |
 | 2026-10-13 | Writes against a public Lab are allowed (Miguel's decision) with the flag off by default | The Lab holds fake data and resets every 30 min. Recommended: keep `MCP_ALLOW_WRITES` off in shared configs, and prefer a local Lab for the evals, since the idempotency and resolve cases change state other visitors would see |
+| 2026-10-13 | A second eval agent runs the cases through the `claude` CLI on the user's login | The API account had no credit. The CLI gives a no-per-token path with the same cases and checkers. Differences: the CLI's default model, no enforced token budget, and a proxy to simulate the lost response. `ANTHROPIC_API_KEY` is stripped from the CLI's environment so it cannot fall back to API credit |
+| 2026-10-13 | The Lab UI shows the MCP tools but does not run an agent or call the server | The server is stdio on the user's machine, which a browser cannot reach. A page that pretended to be an agent would be a simulation. The page lists the tools and shows the raw Lab views, labelled as such, and a test keeps its list in sync |
 | 2026-10-13 | A runner API error stops the evals and is not recorded as a failed case | The first attempt hit a credit-balance error on all 7 cases and printed FAIL. That says nothing about the tools |
 
 ## Open questions
 
 - **Base branch.** `dev` cannot build this component, so the branch was cut from `main`. Fast-forwarding `dev` is not a priority (Miguel, 2026-10-13).
 - **No `kind` on mismatches.** Should the engine add one? Adding it would be an engine change, which this component may not make.
-- **Evals have not been scored.** `ANTHROPIC_API_KEY` is set in Miguel's `.zshrc`. On 2026-10-13 the API answered every call with "credit balance is too low" (HTTP 400), so no model ran and no tokens were spent. They need credit on that account. The default model `claude-sonnet-5-5` and the default prices are unverified until a first run.
+- **Evals: one run so far.** CLI mode passed 7 of 7 once, on the CLI's default model. One run does not show a pass rate. The API mode still needs credit on the account behind the key, and the default model `claude-sonnet-5-5` and prices are unverified until then.
 - **Writes against a public Lab.** Allowed by Miguel. `MCP_ALLOW_WRITES=true` changes shared state that other visitors see until the next reset (30 min). Open: should the public Lab's reset interval be shortened, or the Lab's own rate limit applied per MCP session?
 - **Docs in the build.** `reconciliation.md` and `backend.md` are copied into `dist/docs` at build time. A published package would need them bundled. Not decided because publishing is out of scope.
 - **Where the public sandbox runs** is still open (see `lab.md`). The default `LAB_BASE_URL` assumes a local stack.
