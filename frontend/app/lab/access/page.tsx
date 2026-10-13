@@ -58,7 +58,7 @@ export default function AccessPage() {
     <div className="space-y-5">
       <PageHeader title="Access" subtitle="Pick a persona. The calls below go to the real endpoints with that persona's real JWT, so the 200s, the 403s and the row-level filtering are genuine." />
       <Card title="Persona"><PersonaPicker role={role} onChoose={persona.choose} />
-        {me && <p className="mt-2 text-xs font-medium">Sandbox user <code className="font-mono font-bold">{me.username}</code> (password <code className="font-mono">{me.sandboxPassword}</code>, sandbox only, exists nowhere else). Owns {me.ownedAccounts.length} account(s){me.ownerId ? ` via owner_id ${me.ownerId.slice(0, 8)}…` : ""}.</p>}
+        {me && <p className="mt-2 text-xs font-medium">Sandbox user <code className="font-mono font-semibold">{me.username}</code> (password <code className="font-mono">{me.sandboxPassword}</code>, sandbox only, exists nowhere else). Owns {me.ownedAccounts.length} account(s){me.ownerId ? ` via owner_id ${me.ownerId.slice(0, 8)}…` : ""}.</p>}
       </Card>
 
       {!role && <Notice tone="yellow">Choose a persona to run the probes.</Notice>}
@@ -71,8 +71,8 @@ export default function AccessPage() {
               const summary = !r ? "…" : Array.isArray(content) ? `${content.length} row(s)` : r.ok ? "ok" : (r.data?.message ?? r.message ?? "");
               return (
                 <tr key={p.path} data-probe={p.path} data-status={r?.status ?? ""}>
-                  <td className="px-3 py-1.5 text-xs font-bold">{p.label}<div className="font-mono text-[10px] font-medium">GET /{p.path}</div></td>
-                  <td className="px-3 py-1.5"><span className={`neo-badge ${r && r.status >= 500 ? "bg-[var(--color-neo-red)] text-white" : r && r.status >= 400 ? "bg-[var(--color-neo-orange)]" : "bg-[var(--color-neo-green)]"}`}>{r ? `${r.ok ? "✓" : "✗"} ${r.status}` : "…"}</span></td>
+                  <td className="px-3 py-1.5 text-xs font-semibold">{p.label}<div className="font-mono text-[10px] font-medium">GET /{p.path}</div></td>
+                  <td className="px-3 py-1.5"><span className={`neo-badge ${r && r.status >= 500 ? "tone-red" : r && r.status >= 400 ? "tone-orange" : "tone-green"}`}>{r ? `${r.ok ? "✓" : "✗"} ${r.status}` : "…"}</span></td>
                   <td className="max-w-80 px-3 py-1.5 text-xs">{summary}</td>
                   <td className="px-3 py-1.5 text-xs">{p.expectation}</td>
                 </tr>
@@ -81,7 +81,7 @@ export default function AccessPage() {
           </Table>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <Btn onClick={tryCreate}>Try POST /settlements</Btn>
-            {create && <span className="text-sm font-black">HTTP {create.status}{create.status === 403 ? ": only ADMIN and SUPPORT may create settlements" : create.ok ? ": created" : ""}</span>}
+            {create && <span className="text-sm font-semibold">HTTP {create.status}{create.status === 403 ? ": only ADMIN and SUPPORT may create settlements" : create.ok ? ": created" : ""}</span>}
           </div>
           <div className="mt-2"><ShowRequest sent={create?.sent ?? null} /></div>
           <div className="mt-3">
@@ -92,7 +92,7 @@ export default function AccessPage() {
         </Card>
       )}
       <Card title="Names of the seed accounts">
-        <ul className="grid gap-1 text-xs font-medium sm:grid-cols-2">{Object.entries(ACCOUNT_LABELS).map(([id, label]) => (<li key={id}><span className="font-bold">{label}</span> <span className="font-mono opacity-70">{id.slice(0, 8)}…</span></li>))}</ul>
+        <ul className="grid gap-1 text-xs font-medium sm:grid-cols-2">{Object.entries(ACCOUNT_LABELS).map(([id, label]) => (<li key={id}><span className="font-semibold">{label}</span> <span className="font-mono text-muted">{id.slice(0, 8)}…</span></li>))}</ul>
       </Card>
     </div>
   );

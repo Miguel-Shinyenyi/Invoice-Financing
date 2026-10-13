@@ -6,8 +6,8 @@ export function DetailList({ items, columns = 2 }: { items: Array<[string, React
     <dl className={`neo-card grid grid-cols-1 gap-4 p-4 sm:p-6 ${columns === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
       {items.map(([label, value]) => (
         <div key={label} className="min-w-0">
-          <dt className="text-xs font-black uppercase tracking-wide text-black">{label}</dt>
-          <dd className="mt-1 break-words font-medium text-black">{value}</dd>
+          <dt className="text-xs font-semibold text-ink">{label}</dt>
+          <dd className="mt-1 break-words font-medium text-ink">{value}</dd>
         </div>
       ))}
     </dl>

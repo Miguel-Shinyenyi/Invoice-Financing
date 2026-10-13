@@ -42,7 +42,7 @@ export function ShowRequest({ sent }: { sent: SentRequest | null }) {
 ${sent.method} ${sent.proxyPath}   (what you can call)
 ${Object.entries(sent.headers).map(([k, v]) => `${k}: ${v}`).join("\n")}${sent.body !== null ? `\n\n${JSON.stringify(sent.body, null, 2)}` : ""}`}
       </CodeBox>
-      <p className="mb-1 mt-3 text-xs font-black uppercase">Equivalent curl</p>
+      <p className="mb-1 mt-3 text-xs font-semibold">Equivalent curl</p>
       <CodeBox maxHeight="10rem">{curlFor(sent, origin)}</CodeBox>
     </Disclosure>
   );

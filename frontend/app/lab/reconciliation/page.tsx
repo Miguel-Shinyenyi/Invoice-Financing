@@ -107,8 +107,8 @@ export default function ReconciliationPage() {
             <Stat label="Open (settlement)" value={summary?.openMismatches ?? "…"} />
             <Stat label="Open (ledger)" value={summary?.openLedgerMismatches ?? "…"} />
           </div>
-          {arrivedWithUnseen !== null && <p className="mt-2 text-xs font-bold">When you opened this screen, {arrivedWithUnseen} had gone unseen.</p>}
-          <p className="mt-1 text-xs font-medium">{summary?.note} See the <Link className="underline font-bold" href="/lab/alerts">alert board</Link> and the zero-consumer topic on <Link className="underline font-bold" href="/lab/events">Events</Link>.</p>
+          {arrivedWithUnseen !== null && <p className="mt-2 text-xs font-semibold">When you opened this screen, {arrivedWithUnseen} had gone unseen.</p>}
+          <p className="mt-1 text-xs font-medium">{summary?.note} See the <Link className="underline font-semibold" href="/lab/alerts">alert board</Link> and the zero-consumer topic on <Link className="underline font-semibold" href="/lab/events">Events</Link>.</p>
         </Card>
       </div>
 
@@ -125,7 +125,7 @@ export default function ReconciliationPage() {
             </tr>
           ))}
         </Table>
-        <details className="mt-3"><summary className="cursor-pointer text-xs font-black uppercase">Resolved ({resolved?.length ?? 0})</summary>
+        <details className="mt-3"><summary className="cursor-pointer text-xs font-semibold">Resolved ({resolved?.length ?? 0})</summary>
           <div className="mt-2"><Table head={["Settlement", "Details", "Resolved"]}>
             {(resolved ?? []).map((m) => (<tr key={String(m.id)}><td className="px-3 py-1.5 font-mono text-xs">{shortId(String(m.settlementId))}</td><td className="px-3 py-1.5 text-xs">{m.details}</td><td className="px-3 py-1.5 font-mono text-xs">{fmtDateTime(String(m.resolvedAt))}</td></tr>))}
           </Table></div>
@@ -153,16 +153,16 @@ export default function ReconciliationPage() {
           </div>
         )}
         {resolvedAccount && (
-          <div className="mt-3 border-2 border-black p-3">
-            <p className="text-sm font-bold">Now watch the loop: read that account again.</p>
+          <div className="mt-3 rounded-xl bg-surface-2 p-3">
+            <p className="text-sm font-semibold">Now watch the loop: read that account again.</p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <Btn tone="yellow" onClick={() => reopen(resolvedAccount)}>GET /accounts/{shortId(resolvedAccount)} as {persona.role ?? "…"}</Btn>
-              {reread && <span className="text-sm font-black">HTTP {reread.status}: {reread.status === 500 ? "a fresh mismatch row has opened above." : "consistent."}</span>}
+              {reread && <span className="text-sm font-semibold">HTTP {reread.status}: {reread.status === 500 ? "a fresh mismatch row has opened above." : "consistent."}</span>}
             </div>
-            <p className="mt-1 text-xs font-medium">To close the loop, repair the data by hand on the <Link className="underline font-bold" href="/lab/chaos#balance-hand-edit">Chaos page</Link>: it stands in for a human editing the database.</p>
+            <p className="mt-1 text-xs font-medium">To close the loop, repair the data by hand on the <Link className="underline font-semibold" href="/lab/chaos#balance-hand-edit">Chaos page</Link>: it stands in for a human editing the database.</p>
           </div>
         )}
-        <details className="mt-3"><summary className="cursor-pointer text-xs font-black uppercase">Resolved ({lResolved?.length ?? 0})</summary>
+        <details className="mt-3"><summary className="cursor-pointer text-xs font-semibold">Resolved ({lResolved?.length ?? 0})</summary>
           <div className="mt-2"><Table head={["Account", "Details", "Resolved"]}>
             {(lResolved ?? []).map((m) => (<tr key={String(m.id)}><td className="px-3 py-1.5 font-mono text-xs">{shortId(String(m.accountId))}</td><td className="px-3 py-1.5 text-xs">{m.details}</td><td className="px-3 py-1.5 font-mono text-xs">{fmtDateTime(String(m.resolvedAt))}</td></tr>))}
           </Table></div>

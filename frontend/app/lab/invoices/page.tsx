@@ -55,8 +55,8 @@ export default function InvoicesLab() {
       <Card title="Scenarios">
         <div className="grid gap-3 md:grid-cols-2">
           {(scenarios ?? []).map((s) => (
-            <div key={s.id} className="border-2 border-black p-3">
-              <div className="text-sm font-black">{s.title}</div>
+            <div key={s.id} className="rounded-xl bg-surface-2 p-3">
+              <div className="text-sm font-semibold">{s.title}</div>
               <p className="my-1 text-xs font-medium">{s.description}</p>
               <Btn tone="yellow" busy={busy === s.id} onClick={() => run(s.id)}>Run this scenario</Btn>
             </div>
@@ -68,24 +68,24 @@ export default function InvoicesLab() {
       {d && (
         <Card title={d.title}>
           <div className="space-y-3 text-sm">
-            {d.setup.length > 0 && (<div><div className="text-xs font-black uppercase">Set-up the scenario did first</div><ul className="list-disc pl-5 text-xs font-medium">{d.setup.map((s) => <li key={s}>{s}</li>)}</ul></div>)}
+            {d.setup.length > 0 && (<div><div className="text-xs font-semibold">Set-up the scenario did first</div><ul className="list-disc pl-5 text-xs font-medium">{d.setup.map((s) => <li key={s}>{s}</li>)}</ul></div>)}
             <div>
-              <div className="text-xs font-black uppercase">What the engine sent to POST /score</div>
+              <div className="text-xs font-semibold">What the engine sent to POST /score</div>
               <div className="mt-1 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {Object.entries(d.inputsSent).map(([k, v]) => (<div key={k} className="border-2 border-black p-2"><div className="break-all font-mono text-[10px]">{k}</div><div className="font-mono text-base font-black">{String(v)}</div></div>))}
+                {Object.entries(d.inputsSent).map(([k, v]) => (<div key={k} className="rounded-xl bg-surface-2 p-2"><div className="break-all font-mono text-[10px]">{k}</div><div className="font-mono text-base font-semibold">{String(v)}</div></div>))}
               </div>
             </div>
             {d.assessment ? (
-              <div className="border-2 border-black p-3">
+              <div className="rounded-xl bg-surface-2 p-3">
                 <div className="flex flex-wrap items-center gap-3">
                   <StatusBadge status={d.assessment.decision} />
-                  <span className="font-mono text-2xl font-black" data-testid="fraud-score">{Number(d.assessment.score).toFixed(3)}</span>
+                  <span className="font-mono text-2xl font-semibold" data-testid="fraud-score">{Number(d.assessment.score).toFixed(3)}</span>
                   <span className="text-xs font-medium">score (BLOCK at 0.7 or above)</span>
                 </div>
-                <div className="mt-2 h-4 border-2 border-black bg-white" role="img" aria-label={`score ${d.assessment.score} of 1, block threshold 0.7`}>
-                  <div className="relative h-full" style={{ width: `${Math.min(100, d.assessment.score * 100)}%`, background: d.assessment.decision === "BLOCK" ? "#ff3b30" : "#00c853" }} />
+                <div className="mt-2 h-4 rounded-xl bg-surface-2" role="img" aria-label={`score ${d.assessment.score} of 1, block threshold 0.7`}>
+                  <div className="relative h-full" style={{ width: `${Math.min(100, d.assessment.score * 100)}%`, background: d.assessment.decision === "BLOCK" ? "var(--chart-err)" : "var(--chart-3)" }} />
                 </div>
-                <p className="mt-2 text-xs font-bold">Reasons: {d.assessment.reasons.length ? d.assessment.reasons.join(", ") : "none"}</p>
+                <p className="mt-2 text-xs font-semibold">Reasons: {d.assessment.reasons.length ? d.assessment.reasons.join(", ") : "none"}</p>
               </div>
             ) : <Notice tone="yellow">No assessment was stored.</Notice>}
             {d.httpStatus === 422 && <Notice tone="red" title="Blocked.">{d.error} Nothing was disbursed; the invoice is still {d.invoiceStatus}.</Notice>}
@@ -119,7 +119,7 @@ export default function InvoicesLab() {
             {paidResult && <div className="mt-2"><Notice tone={paidResult.ok ? "green" : "red"}>{paidResult.ok ? "Recorded in the mock payment source (in memory: a restart or reset forgets it)." : paidResult.message}</Notice></div>}
           </div>
           <div>
-            <div className="text-xs font-black uppercase">Repayment job</div>
+            <div className="text-xs font-semibold">Repayment job</div>
             <p className="my-1 text-xs font-medium">Collects advance plus fee from the business to the platform for every paid invoice. It also runs by itself every few seconds in the sandbox.</p>
             <Btn onClick={async () => { setRepay(await lab.post("invoices/repayment-run")); await refresh(); }}>Run repayment now</Btn>
             {repay?.ok && <div className="mt-2"><Notice tone="green">Repayment run completed.</Notice></div>}

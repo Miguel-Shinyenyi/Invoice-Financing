@@ -1,77 +1,295 @@
 @import "tailwindcss";
 
+/* Apple-paradigm design system (docs/design-apple.md).
+   Gray canvas, white grouped cards, one blue tint, system colours for status only.
+   Light and dark follow the viewer's system setting. Every text pair is measured
+   against the surface it sits on and passes WCAG 2.2 AA. */
+
 :root {
-  --background: #fdf6e9;
-  --foreground: #000000;
+  color-scheme: light dark;
+
+  --canvas: #f5f5f7;
+  --surface: #ffffff;
+  --surface-2: #f5f5f7;
+  --ink: #1d1d1f;
+  --muted: #6e6e73;
+  --hairline: #d2d2d7;
+  --field-edge: #86868b;
+  --fill: rgba(118, 118, 128, 0.12);
+  --fill-strong: rgba(118, 118, 128, 0.2);
+  --seg-on: #ffffff;
+  --seg-shadow: 0 3px 8px rgba(0, 0, 0, 0.12), 0 3px 1px rgba(0, 0, 0, 0.04);
+
+  /* One tint. Blue, because amber and yellow already mean "pending" here. */
+  --tint: #0071e3;
+  --tint-ink: #ffffff;
+  --link: #0066cc;
+  --focus: rgba(0, 113, 227, 0.4);
+
+  /* Status colours: text colour + tinted fill. Never used as decoration. */
+  --green: #1b7332;  --green-fill: #e3f5e7;
+  --red: #c8001a;    --red-fill: #fde8ea;
+  --yellow: #805000; --yellow-fill: #fff3d1;
+  --orange: #a33a00; --orange-fill: #ffeadb;
+  --blue: #0058b0;   --blue-fill: #e4effb;
+  --pink: #b0105a;   --pink-fill: #fce7f1;
+
+  /* Liquid Glass, for floating chrome only. */
+  --glass: rgba(255, 255, 255, 0.72);
+  --glass-line: rgba(0, 0, 0, 0.08);
+
+  --code-bg: #1d1d1f;
+  --code-ink: #f5f5f7;
+  /* Code panels are dark in both themes, so they carry their own status colours. */
+  --code-muted: #a1a1a6;
+  --code-red: #ff7b73;
+  --code-orange: #ffa64d;
+  --code-yellow: #ffd60a;
+  --code-pink: #ff7eb6;
+  --code-green: #4cd964;
+
+  /* Chart and diagram colours: Apple system palette. */
+  --chart-1: #0071e3;
+  --chart-2: #af52de;
+  --chart-3: #34c759;
+  --chart-4: #ff9500;
+  --chart-5: #8e8e93;
+  --chart-6: #ffcc00;
+  --chart-err: #ff3b30;
+  --chart-track: #e8e8ed;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --canvas: #000000;
+    --surface: #1c1c1e;
+    --surface-2: #2c2c2e;
+    --ink: #f5f5f7;
+    --muted: #a1a1a6;
+    --hairline: #38383a;
+    --field-edge: #6e6e73;
+    --fill: rgba(118, 118, 128, 0.24);
+    --fill-strong: rgba(118, 118, 128, 0.36);
+    --seg-on: #636366;
+    --seg-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+
+    --tint: #0071e3;
+    --tint-ink: #ffffff;
+    --link: #4aa3ff;
+    --focus: rgba(64, 156, 255, 0.5);
+
+    --green: #4cd964;  --green-fill: #16301c;
+    --red: #ff7b73;    --red-fill: #3a1a1a;
+    --yellow: #ffd60a; --yellow-fill: #33290b;
+    --orange: #ffa64d; --orange-fill: #3a2410;
+    --blue: #6cb6ff;   --blue-fill: #10263d;
+    --pink: #ff7eb6;   --pink-fill: #3a1729;
+
+    --glass: rgba(29, 29, 31, 0.72);
+    --glass-line: rgba(255, 255, 255, 0.1);
+
+    --code-bg: #0d0d0e;
+
+    --chart-1: #0a84ff;
+    --chart-2: #bf5af2;
+    --chart-3: #30d158;
+    --chart-4: #ff9f0a;
+    --chart-5: #98989d;
+    --chart-6: #ffd60a;
+    --chart-err: #ff453a;
+    --chart-track: #2c2c2e;
+  }
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-hairline: var(--hairline);
+  --color-fill: var(--fill);
+  --color-tint: var(--tint);
+  --color-link: var(--link);
 
-  /* Neo-brutalist design tokens -- flat, high-contrast, no gradients/blur. */
-  --color-neo-cream: #fdf6e9;
-  --color-neo-yellow: #ffd100;
-  --color-neo-pink: #ff3ea5;
-  --color-neo-blue: #2f6fed;
-  --color-neo-green: #00c853;
-  --color-neo-red: #ff3b30;
-  --color-neo-orange: #ff8a00;
-  --color-neo-black: #000000;
-
-  --shadow-brutal: 4px 4px 0 0 #000000;
-  --shadow-brutal-sm: 2px 2px 0 0 #000000;
-  --shadow-brutal-lg: 6px 6px 0 0 #000000;
+  /* San Francisco on Apple devices, the platform UI font elsewhere. No web font download. */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
 }
-
-/* Dark mode intentionally not supported -- neo-brutalism here commits to one bold,
-   flat, high-contrast look rather than adapting to viewer theme preference. */
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.47;
+  -webkit-font-smoothing: antialiased;
 }
+
+h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.015em; }
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Numbers line up in tables and stats. */
+.font-mono, td, .tabular { font-variant-numeric: tabular-nums; }
 
 @layer components {
+  /* Grouped card: white on the gray canvas, no shadow. */
   .neo-card {
-    @apply rounded-none border-2 border-black bg-white shadow-brutal;
+    background: var(--surface);
+    color: var(--ink);
+    border-radius: 18px;
   }
 
+  /* Buttons. Default is Apple's gray button; tones pick a filled variant. */
   .neo-btn {
-    @apply inline-flex items-center justify-center rounded-none border-2 border-black bg-white px-4 py-2 font-bold text-black shadow-brutal-sm transition-all hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:pointer-events-none disabled:opacity-50;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    min-height: 2.25rem;
+    padding: 0.4375rem 1rem;
+    border-radius: 980px;
+    background: var(--fill);
+    color: var(--link);
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 1.2;
+    white-space: nowrap;
+    transition: transform 150ms var(--ease-out), background-color 150ms var(--ease-out), opacity 150ms;
   }
+  .neo-btn:hover { background: var(--fill-strong); }
+  .neo-btn:active { transform: scale(0.97); }
+  .neo-btn:disabled, .neo-btn[aria-disabled="true"] { pointer-events: none; opacity: 0.4; }
+  /* Primary: the old yellow button. One per view. */
+  .neo-btn.tone-yellow, .neo-btn.tone-blue { background: var(--tint); color: var(--tint-ink); }
+  .neo-btn.tone-yellow:hover, .neo-btn.tone-blue:hover { background: color-mix(in srgb, var(--tint) 88%, black); }
+  /* Destructive and confirm keep their meaning as filled fills with readable text. */
+  .neo-btn.tone-red { background: var(--red-fill); color: var(--red); }
+  .neo-btn.tone-green { background: var(--green-fill); color: var(--green); }
+  .neo-btn.tone-pink, .neo-btn.tone-orange { background: var(--fill); color: var(--link); }
+  .neo-btn.tone-red:hover, .neo-btn.tone-green:hover { filter: brightness(0.96); }
 
+  /* iOS-style text field. */
   .neo-input {
-    @apply rounded-none border-2 border-black bg-white px-3 py-2 font-medium text-black outline-none focus:shadow-brutal-sm;
+    min-height: 2.25rem;
+    border-radius: 10px;
+    border: 1px solid var(--hairline);
+    background: var(--surface);
+    color: var(--ink);
+    padding: 0.4375rem 0.75rem;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 150ms, box-shadow 150ms;
   }
+  .neo-input:hover { border-color: var(--field-edge); }
+  .neo-input:focus { border-color: var(--tint); box-shadow: 0 0 0 4px var(--focus); }
+  .neo-input:disabled { opacity: 0.5; }
+  .neo-input[aria-invalid="true"] { border-color: var(--red); }
+  select.neo-input { padding-right: 2rem; }
 
+  /* Status badge: small capsule, tinted fill, glyph + text so colour is never the only signal. */
   .neo-badge {
-    @apply inline-flex items-center rounded-none border-2 border-black px-2 py-0.5 text-xs font-bold uppercase tracking-wide shadow-brutal-sm;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.125rem;
+    border-radius: 980px;
+    padding: 0.125rem 0.5rem;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4;
+    white-space: nowrap;
+    background: var(--fill);
+    color: var(--ink);
   }
 
+  /* Chip: capsule link. Active state is a white segment, like a segmented control. */
   .neo-chip {
-    @apply rounded-none border-2 border-black px-3 py-1 text-sm font-bold shadow-brutal-sm transition-all hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none;
+    display: inline-flex;
+    align-items: center;
+    min-height: 2rem;
+    border-radius: 980px;
+    padding: 0.3125rem 0.875rem;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink);
+    transition: background-color 150ms var(--ease-out), transform 150ms var(--ease-out);
+  }
+  .neo-chip:hover { background: var(--fill); }
+  .neo-chip:active { transform: scale(0.97); }
+  .neo-chip[aria-current="page"], .neo-chip[aria-pressed="true"] { background: var(--seg-on); box-shadow: var(--seg-shadow); font-weight: 600; }
+
+  /* Segmented track that holds chips (Lab nav). */
+  .segmented {
+    display: flex;
+    width: max-content;
+    gap: 2px;
+    padding: 2px;
+    border-radius: 9px;
+    background: var(--fill);
+  }
+  .segmented .neo-chip { border-radius: 7px; min-height: 1.75rem; padding: 0.25rem 0.75rem; }
+
+  /* Liquid Glass bar. Floating chrome only, never content. */
+  .glass-bar {
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(20px) saturate(180%);
+    border-bottom: 1px solid var(--glass-line);
+  }
+
+  /* Small uppercase-free section label. */
+  .label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
   }
 }
 
-/* Lab additions: nothing here animates on its own. A highlight is applied for a moment only when a real
-   backend event arrives (see .lab-flash and its use in SystemMap), and is switched off for reduced motion. */
+/* Tone fills come after the components so they win over .neo-badge and .neo-btn defaults. */
+@layer components {
+  /* Status and tone fills. `tone-*` replaces the old flat neo colour blocks. */
+  .tone-green  { background: var(--green-fill);  color: var(--green); }
+  .tone-red    { background: var(--red-fill);    color: var(--red); }
+  .tone-yellow { background: var(--yellow-fill); color: var(--yellow); }
+  .tone-orange { background: var(--orange-fill); color: var(--orange); }
+  .tone-blue   { background: var(--blue-fill);   color: var(--blue); }
+  .tone-pink   { background: var(--pink-fill);   color: var(--pink); }
+  .tone-default { background: var(--surface); color: var(--ink); }
+  .neo-badge.tone-default { background: var(--fill); }
+}
+
+/* Lab additions: nothing animates on its own. A highlight shows for a moment only when a real
+   backend event arrives (see .lab-flash in SystemMap), and becomes a static ring for reduced motion. */
 @layer components {
   .lab-flash {
-    animation: lab-flash 900ms ease-out 1;
+    animation: lab-flash 900ms var(--ease-out) 1;
   }
 }
 
 @keyframes lab-flash {
-  from { background-color: var(--color-neo-yellow); }
+  from { background-color: var(--blue-fill); }
   to { background-color: transparent; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .lab-flash { animation: none; outline: 3px solid var(--color-neo-yellow); }
-  .neo-btn, .neo-chip { transition: none; }
+  .lab-flash { animation: none; outline: 2px solid var(--tint); }
+  .neo-btn, .neo-chip, .neo-input { transition: none; }
+  .neo-btn:active, .neo-chip:active { transform: none; }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass-bar { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
 
 html, body { max-width: 100%; overflow-x: clip; }
+
+/* Diagram text follows the theme unless a component sets its own fill. */
+svg text:not([fill]) { fill: var(--ink); font-family: var(--font-sans); }

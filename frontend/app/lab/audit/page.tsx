@@ -31,10 +31,10 @@ export default function AuditPage() {
           {(data?.rows ?? []).map((r) => (
             <tr key={r.id} data-action={r.action} data-actor={r.actor}>
               <td className="px-3 py-1.5 font-mono text-xs">{fmtDateTime(r.at)}</td>
-              <td className="px-3 py-1.5 font-bold">{r.actor}</td>
+              <td className="px-3 py-1.5 font-semibold">{r.actor}</td>
               <td className="px-3 py-1.5 font-mono text-xs">{r.action}</td>
               <td className="px-3 py-1.5 font-mono text-xs">{r.entity} {shortId(r.entityId)}</td>
-              <td className="px-3 py-1.5"><span className={`neo-badge ${r.outcome === "SUCCESS" ? "bg-[var(--color-neo-green)]" : "bg-[var(--color-neo-red)] text-white"}`}><span aria-hidden className="mr-1">{r.outcome === "SUCCESS" ? "✓" : "✗"}</span>{r.outcome}</span></td>
+              <td className="px-3 py-1.5"><span className={`neo-badge ${r.outcome === "SUCCESS" ? "tone-green" : "tone-red"}`}><span aria-hidden className="mr-1">{r.outcome === "SUCCESS" ? "✓" : "✗"}</span>{r.outcome}</span></td>
             </tr>
           ))}
         </Table>

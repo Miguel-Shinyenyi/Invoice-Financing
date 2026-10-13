@@ -36,7 +36,7 @@ export function PersonaPicker({ role, onChoose }: { role: string | null; onChoos
   const [busy, setBusy] = useState<string | null>(null);
   return (
     <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Acting as">
-      <span className="text-xs font-black uppercase">Acting as</span>
+      <span className="text-xs font-semibold">Acting as</span>
       {LAB_ROLES.map((r) => (
         <Btn key={r} tone={role === r ? "yellow" : "default"} aria-pressed={role === r} busy={busy === r} onClick={async () => { setBusy(r); await onChoose(r); setBusy(null); }}>
           {role === r && <span aria-hidden className="mr-1">✓</span>}{r}

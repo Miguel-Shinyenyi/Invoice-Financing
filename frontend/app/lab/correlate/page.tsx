@@ -72,7 +72,7 @@ export default function CorrelatePage() {
         <>
           <Card title="The request">
             {c.request ? (
-              <p className="text-sm font-bold">{c.request.method} {c.request.path} → HTTP {c.request.status} in {c.request.durationMs} ms{c.request.actor ? ` as ${c.request.actor}` : ""} <span className="font-mono text-xs font-medium">({fmtDateTime(c.request.startedAt)})</span></p>
+              <p className="text-sm font-semibold">{c.request.method} {c.request.path} → HTTP {c.request.status} in {c.request.durationMs} ms{c.request.actor ? ` as ${c.request.actor}` : ""} <span className="font-mono text-xs font-medium">({fmtDateTime(c.request.startedAt)})</span></p>
             ) : <Notice tone="yellow">This request id is not in the request index (it is bounded, and /lab reads are not indexed). Only its log lines are shown.</Notice>}
           </Card>
           <Card title={`Log lines, both services (${c.logs.length})`}>
@@ -94,7 +94,7 @@ export default function CorrelatePage() {
             </Table>
           </Card>
           {c.settlementIds.map((id) => <Inspector key={id} settlementId={id} />)}
-          {c.invoiceIds.length > 0 && <p className="text-sm font-medium">Invoice {c.invoiceIds.map((i) => shortId(i)).join(", ")}: see <Link className="underline font-bold" href="/lab/invoices">Invoices</Link>.</p>}
+          {c.invoiceIds.length > 0 && <p className="text-sm font-medium">Invoice {c.invoiceIds.map((i) => shortId(i)).join(", ")}: see <Link className="underline font-semibold" href="/lab/invoices">Invoices</Link>.</p>}
         </>
       )}
     </div>

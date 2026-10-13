@@ -32,10 +32,10 @@ export function FinanceButton({ invoiceId }: { invoiceId: string }) {
 
   return (
     <div>
-      <button onClick={finance} disabled={loading} className="neo-btn bg-[var(--color-neo-yellow)]">
+      <button onClick={finance} disabled={loading} className="neo-btn tone-yellow">
         {loading ? "Financing..." : "Finance this invoice"}
       </button>
-      {error && <p className="mt-2 font-bold text-[var(--color-neo-red)]">{error}</p>}
+      {error && <p className="mt-2 font-semibold text-[var(--red)]">{error}</p>}
     </div>
   );
 }

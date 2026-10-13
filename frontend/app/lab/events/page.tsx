@@ -46,7 +46,7 @@ export default function EventsPage() {
         <Table head={["Topic", "Outbox pending", "Outbox published", "Kafka messages", "Consumers", "Consumer groups"]}>
           {(events?.topics ?? []).map((t) => (
             <tr key={t.topic} data-topic={t.topic} data-consumers={t.consumers ?? ""}>
-              <td className="px-3 py-1.5 font-mono text-xs font-bold">{t.topic}</td>
+              <td className="px-3 py-1.5 font-mono text-xs font-semibold">{t.topic}</td>
               <td className="px-3 py-1.5 font-mono">{t.pending}</td>
               <td className="px-3 py-1.5 font-mono">{t.published}</td>
               <td className="px-3 py-1.5 font-mono">{t.kafkaMessageCount ?? "—"}</td>
@@ -71,7 +71,7 @@ export default function EventsPage() {
                 <td className="px-3 py-1.5 font-mono text-xs">{p.topic}[{p.partition}]</td>
                 <td className="px-3 py-1.5 font-mono">{p.committed}</td>
                 <td className="px-3 py-1.5 font-mono">{p.endOffset}</td>
-                <td className="px-3 py-1.5 font-mono font-black">{p.lag}</td>
+                <td className="px-3 py-1.5 font-mono font-semibold">{p.lag}</td>
               </tr>
             )))}
           </Table>

@@ -29,10 +29,10 @@ export default function AlertsPage() {
       <Card title="Alert board">
         <ul className="space-y-3">
           {(data?.rules ?? []).map((r) => (
-            <li key={r.name} data-alert={r.name} data-state={r.state} className="border-2 border-black p-3">
+            <li key={r.name} data-alert={r.name} data-state={r.state} className="rounded-xl bg-surface-2 p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="text-sm font-black">{r.name}</div>
-                {r.state === "no rule exists" ? <span className="neo-badge bg-[var(--color-neo-orange)]"><span aria-hidden className="mr-1">⚠</span>no rule exists</span> : <StatusBadge status={r.state} />}
+                <div className="text-sm font-semibold">{r.name}</div>
+                {r.state === "no rule exists" ? <span className="neo-badge tone-orange"><span aria-hidden className="mr-1">⚠</span>no rule exists</span> : <StatusBadge status={r.state} />}
               </div>
               {r.expression && <div className="mt-2"><CodeBox maxHeight="5rem">{r.expression}</CodeBox></div>}
               {r.sandboxForSeconds !== null && (
@@ -47,19 +47,19 @@ export default function AlertsPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="Trigger MLServiceDown with a real cause">
           <p className="mb-2 text-xs font-medium">Makes the fraud service answer 503 on /metrics and /score for a while, then recover by itself. Prometheus cannot scrape it, so the rule counts to firing, and the backend fails open.</p>
-          <label className="block text-xs font-black uppercase" htmlFor="ml-seconds">Seconds (1–60)</label>
+          <label className="block text-xs font-semibold" htmlFor="ml-seconds">Seconds (1–60)</label>
           <input id="ml-seconds" type="range" min={5} max={60} value={seconds} onChange={(e) => setSeconds(Number(e.target.value))} className="w-full" />
-          <p className="font-mono text-sm font-black">{seconds}s</p>
+          <p className="font-mono text-sm font-semibold">{seconds}s</p>
           <Btn tone="red" busy={busy} onClick={async () => { setBusy(true); setFault(await lab.post("ml/fault", { seconds })); setBusy(false); }}>Take the fraud service down</Btn>
           {fault?.ok && fault.data && <div className="mt-2"><Notice tone="green">{fault.data.effect} Back at {fmtDateTime(fault.data.expiresAt)}.</Notice></div>}
           {fault && !fault.ok && <div className="mt-2"><Notice tone="yellow">{fault.message}</Notice></div>}
-          <p className="mt-2 text-xs font-medium">While it is down, <Link className="underline font-bold" href="/lab/invoices">finance a clean invoice</Link>: it still succeeds with no fraud signal (fail-open).</p>
+          <p className="mt-2 text-xs font-medium">While it is down, <Link className="underline font-semibold" href="/lab/invoices">finance a clean invoice</Link>: it still succeeds with no fraud signal (fail-open).</p>
           <div className="mt-2"><ShowRequest sent={fault?.sent ?? null} /></div>
         </Card>
         <Card title="Trigger SettlementFailureRateSpike">
           <p className="mb-2 text-xs font-medium">Run a load plan with the “70% declined” fault profile. The gateway returns FAILED for most calls, so more than half of settlement outcomes are FAILED. The rule&apos;s 5-minute window needs a little time to move.</p>
-          <Link className="neo-btn bg-[var(--color-neo-yellow)]" href="/lab/load">Open Load</Link>
-          <h3 className="mb-1 mt-4 text-xs font-black uppercase">BackendDown</h3>
+          <Link className="neo-btn tone-yellow" href="/lab/load">Open Load</Link>
+          <h3 className="mb-1 mt-4 text-xs font-semibold">BackendDown</h3>
           <p className="text-xs font-medium">Fires only when the backend itself is unscrapeable, which would end the sandbox, so there is no button for it.</p>
         </Card>
       </div>
@@ -67,7 +67,7 @@ export default function AlertsPage() {
       <Card title="Alertmanager: active alerts">
         <Table head={["Alert", "Severity", "Since", "State", "Summary"]} empty={data && data.alertmanager.length === 0 ? "No active alerts." : undefined}>
           {(data?.alertmanager ?? []).map((a) => (
-            <tr key={`${a.name}${a.startsAt}`}><td className="px-3 py-1.5 font-bold">{a.name}</td><td className="px-3 py-1.5">{a.severity}</td><td className="px-3 py-1.5 font-mono text-xs">{fmtDateTime(a.startsAt)}</td><td className="px-3 py-1.5">{a.state}</td><td className="px-3 py-1.5 text-xs">{a.summary}</td></tr>
+            <tr key={`${a.name}${a.startsAt}`}><td className="px-3 py-1.5 font-semibold">{a.name}</td><td className="px-3 py-1.5">{a.severity}</td><td className="px-3 py-1.5 font-mono text-xs">{fmtDateTime(a.startsAt)}</td><td className="px-3 py-1.5">{a.state}</td><td className="px-3 py-1.5 text-xs">{a.summary}</td></tr>
           ))}
         </Table>
       </Card>

@@ -13,9 +13,9 @@ import type { PlaygroundResponse } from "@/lib/lab/types";
 
 function ChaosCard({ id, title, boundary, children, next }: { id: string; title: string; boundary: string; children: ReactNode; next: ReactNode }) {
   return (
-    <Card id={id} title={title} right={<span className="neo-badge bg-white">boundary: {boundary}</span>}>
+    <Card id={id} title={title} right={<span className="neo-badge bg-surface">boundary: {boundary}</span>}>
       {children}
-      <div className="mt-3 border-t-2 border-black pt-2 text-xs font-medium"><strong className="font-black uppercase">What to look at next. </strong>{next}</div>
+      <div className="mt-3 border-t border-hairline pt-2 text-xs font-medium"><strong className="font-semibold">What to look at next. </strong>{next}</div>
     </Card>
   );
 }
@@ -139,7 +139,7 @@ function ExternalRef({ mode }: { mode: "forget" | "corrupt" }) {
       </div>
       {res && !res.ok && <Notice tone="red">{res.message}</Notice>}
       {res?.ok && <Notice tone="green">Done. Seeded settlements are already past the grace period, so the next run flags it.</Notice>}
-      {run?.data && <Notice tone="blue">Run checked {run.data.recordsChecked} settlements, {run.data.mismatchesFound} mismatch(es) open. <Link className="underline font-bold" href="/lab/reconciliation">See them</Link>.</Notice>}
+      {run?.data && <Notice tone="blue">Run checked {run.data.recordsChecked} settlements, {run.data.mismatchesFound} mismatch(es) open. <Link className="underline font-semibold" href="/lab/reconciliation">See them</Link>.</Notice>}
       <ShowRequest sent={res?.sent ?? null} />
     </div>
   );
@@ -194,23 +194,23 @@ export default function ChaosPage() {
     <div className="space-y-5">
       <PageHeader title="Chaos" subtitle="One card per fault. Each runs the fault at a boundary, then walks you to the screen that shows its consequence." />
       <ChaosCard id="request-lost" title="Request lost (case 1)" boundary="gateway call"
-        next={<>The settlement is UNKNOWN with no reference. <Link className="underline font-bold" href="/lab/reconciliation">Stranded UNKNOWN</Link> will list it, and it stays there.</>}>
+        next={<>The settlement is UNKNOWN with no reference. <Link className="underline font-semibold" href="/lab/reconciliation">Stranded UNKNOWN</Link> will list it, and it stays there.</>}>
         <SettleFault mode="REQUEST_LOST" />
       </ChaosCard>
       <ChaosCard id="response-lost" title="Response lost (case 2)" boundary="gateway call"
-        next={<>The external store holds a record the engine cannot name. Check <Link className="underline font-bold" href="/lab/data">the data browser</Link> for the settlement, and the <Link className="underline font-bold" href="/lab/logs">logs</Link> for the gateway line.</>}>
+        next={<>The external store holds a record the engine cannot name. Check <Link className="underline font-semibold" href="/lab/data">the data browser</Link> for the settlement, and the <Link className="underline font-semibold" href="/lab/logs">logs</Link> for the gateway line.</>}>
         <SettleFault mode="RESPONSE_LOST" />
       </ChaosCard>
       <ChaosCard id="slow-gateway" title="Slow gateway" boundary="gateway call"
-        next={<>Open <Link className="underline font-bold" href="/lab/traces">Traces</Link>: the gateway call is the long span. Or use the playground's “send twice at once” to get a 409 in progress.</>}>
+        next={<>Open <Link className="underline font-semibold" href="/lab/traces">Traces</Link>: the gateway call is the long span. Or use the playground's “send twice at once” to get a 409 in progress.</>}>
         <SettleFault mode="SLOW" slowMs={2500} />
       </ChaosCard>
       <ChaosCard id="orphaned-pending" title="Orphaned PENDING (a crash between the two transactions)" boundary="crash point"
-        next={<>The settlement turns UNKNOWN once the sweep runs. Retrying its key before that returns 409. Then see it on <Link className="underline font-bold" href="/lab/reconciliation">Stranded UNKNOWN</Link>.</>}>
+        next={<>The settlement turns UNKNOWN once the sweep runs. Retrying its key before that returns 409. Then see it on <Link className="underline font-semibold" href="/lab/reconciliation">Stranded UNKNOWN</Link>.</>}>
         <Orphan />
       </ChaosCard>
       <ChaosCard id="external-forgotten" title="External record forgotten" boundary="external record store"
-        next={<>Open <Link className="underline font-bold" href="/lab/reconciliation">Reconciliation</Link>: a “No external record found” mismatch. Then <Link className="underline font-bold" href="/lab/alerts">Alerts</Link>: no rule covers it (<KnownGap n={6} anchor="current-state" doc="docs/kafka-events.md" />).</>}>
+        next={<>Open <Link className="underline font-semibold" href="/lab/reconciliation">Reconciliation</Link>: a “No external record found” mismatch. Then <Link className="underline font-semibold" href="/lab/alerts">Alerts</Link>: no rule covers it (<KnownGap n={6} anchor="current-state" doc="docs/kafka-events.md" />).</>}>
         <ExternalRef mode="forget" />
       </ChaosCard>
       <ChaosCard id="external-corrupted" title="External record corrupted (amount, currency or status)" boundary="external record store"
@@ -218,7 +218,7 @@ export default function ChaosPage() {
         <ExternalRef mode="corrupt" />
       </ChaosCard>
       <ChaosCard id="balance-hand-edit" title="Balance hand-edited" boundary="database row a human would edit"
-        next={<>Open <Link className="underline font-bold" href="/lab/reconciliation">Reconciliation</Link>, resolve the ledger mismatch without repairing, then read the account again: a fresh row opens (<KnownGap n={2} anchor="open-questions" />).</>}>
+        next={<>Open <Link className="underline font-semibold" href="/lab/reconciliation">Reconciliation</Link>, resolve the ledger mismatch without repairing, then read the account again: a fresh row opens (<KnownGap n={2} anchor="open-questions" />).</>}>
         <HandEdit />
       </ChaosCard>
     </div>

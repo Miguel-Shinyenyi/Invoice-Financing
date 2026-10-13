@@ -48,7 +48,7 @@ function Compare({ current, previous }: { current: LoadRun; previous: LoadRun })
       <Table head={["Metric", "This run", "Previous", "Change"]}>
         {rows.map(([label, a, b, hint]) => (
           <tr key={label}>
-            <td className="px-3 py-1.5 font-bold">{label} {hint && <span className="text-[10px] font-medium opacity-60">({hint})</span>}</td>
+            <td className="px-3 py-1.5 font-semibold">{label} {hint && <span className="text-[10px] font-medium opacity-60">({hint})</span>}</td>
             <td className="px-3 py-1.5 font-mono">{a === null ? "—" : fmtNum(a, 1)}</td>
             <td className="px-3 py-1.5 font-mono">{b === null ? "—" : fmtNum(b, 1)}</td>
             <td className="px-3 py-1.5 font-mono">{a === null || b === null ? "—" : `${a - b >= 0 ? "+" : ""}${fmtNum(a - b, 1)}`}</td>
@@ -148,7 +148,7 @@ export default function LoadPage() {
         title="Load"
         subtitle="Real HTTP requests to the sandbox backend on loopback, with the sandbox ADMIN token, so the security chain, request-id filter, audit logging and JSON serialization are all in the measured path. Every number is measured, none is estimated."
       />
-      <Card title="Plan" right={caps && <span className="text-xs font-bold">caps from the server: ≤{caps.maxVirtualUsers} users, ≤{caps.maxDurationSeconds}s, ≤{caps.maxTotalRequests} requests</span>}>
+      <Card title="Plan" right={caps && <span className="text-xs font-semibold">caps from the server: ≤{caps.maxVirtualUsers} users, ≤{caps.maxDurationSeconds}s, ≤{caps.maxTotalRequests} requests</span>}>
         <div className="grid gap-3 md:grid-cols-3">
           <Field label="Scenario">
             {(id) => <select id={id} className="neo-input w-full" value={scenario} onChange={(e) => setScenario(e.target.value as LoadPlan["scenario"])}>{SCENARIOS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>}
@@ -210,9 +210,9 @@ export default function LoadPage() {
             <Card title="Invariants checked against the database" right={<StatusBadge status={run.verdict === "PASS" ? "PASS" : run.verdict === "FAIL" ? "FAIL" : "SKIPPED"} />}>
               <ul className="space-y-2">
                 {run.invariants.map((i) => (
-                  <li key={i.id} data-invariant={i.id} data-status={i.status} className="grid grid-cols-[5.5rem_1fr] items-start gap-2 border-2 border-black p-2">
+                  <li key={i.id} data-invariant={i.id} data-status={i.status} className="grid grid-cols-[5.5rem_1fr] items-start gap-2 rounded-xl bg-surface-2 p-2">
                     <StatusBadge status={i.status} />
-                    <div className="min-w-0"><div className="text-sm font-black">{i.title}</div><div className="break-words text-xs font-medium">{i.detail}</div></div>
+                    <div className="min-w-0"><div className="text-sm font-semibold">{i.title}</div><div className="break-words text-xs font-medium">{i.detail}</div></div>
                   </li>
                 ))}
               </ul>
@@ -227,7 +227,7 @@ export default function LoadPage() {
                 <a className="neo-btn" href={`${BASE_PATH}/api/lab/load/${run.runId}?download=true`}>Download JSON</a>
                 <DocLink path="load/README.md" anchor="the-lab-runner-versus-k6">Lab runner versus k6: which to quote</DocLink>
               </div>
-              <p className="mt-3 text-xs font-bold uppercase">The same plan with k6</p>
+              <p className="mt-3 text-xs font-semibold">The same plan with k6</p>
               <CodeBox maxHeight="7rem">{run.k6Equivalent}</CodeBox>
               <p className="mt-2 text-xs font-medium">{run.note}</p>
             </Card>
@@ -241,7 +241,7 @@ export default function LoadPage() {
           {history.map((h) => (
             <tr key={h.runId}>
               <td className="px-3 py-1.5 font-mono text-xs">{new Date(h.startedAt).toLocaleTimeString("en-GB")}</td>
-              <td className="px-3 py-1.5 text-xs font-bold">{h.plan.scenario}</td>
+              <td className="px-3 py-1.5 text-xs font-semibold">{h.plan.scenario}</td>
               <td className="px-3 py-1.5 font-mono">{h.plan.virtualUsers}</td>
               <td className="px-3 py-1.5 font-mono">{h.summary.totalRequests}</td>
               <td className="px-3 py-1.5 font-mono">{fmtMs(h.summary.p95Ms)}</td>

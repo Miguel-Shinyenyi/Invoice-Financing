@@ -29,7 +29,7 @@ export default async function AccountDetailPage({
           <PageHeader title="Account" subtitle={<span className="break-all font-mono">{id}</span>} />
           <Notice tone="red" title="This account's balance cannot be shown.">
             Its stored balance does not match the net of its ledger entries. A ledger mismatch has been recorded for manual review.{" "}
-            <Link href="/reconciliation" className="font-bold underline">Open reconciliation</Link>.
+            <Link href="/reconciliation" className="font-medium text-link underline underline-offset-2">Open reconciliation</Link>.
           </Notice>
         </PageContainer>
       );
@@ -44,18 +44,18 @@ export default async function AccountDetailPage({
       <DetailList
         columns={3}
         items={[
-          ["Balance", <span key="b" className="text-2xl font-black">{account.balance} {account.currency}</span>],
-          ["Owner", <span key="o" className="break-all font-mono text-xs font-bold">{account.ownerId}</span>],
+          ["Balance", <span key="b" className="text-2xl font-semibold">{account.balance} {account.currency}</span>],
+          ["Owner", <span key="o" className="break-all font-mono text-xs font-semibold">{account.ownerId}</span>],
           ["Created", new Date(account.createdAt).toLocaleString()],
         ]}
       />
-      <h2 className="mb-3 mt-8 text-sm font-black uppercase tracking-wide">Settlement history</h2>
+      <h2 className="mb-3 mt-8 text-sm font-semibold">Settlement history</h2>
       <Table head={["Settlement", "Direction", "Amount", "Status", "Updated"]} empty={history.content.length === 0 ? "No settlements yet." : undefined}>
         {history.content.map((s) => (
           <tr key={s.settlementId}>
-            <td className="px-3 py-2"><Link href={`/settlements/${s.settlementId}`} className="font-mono text-xs font-bold underline">{s.settlementId.slice(0, 8)}</Link></td>
-            <td className="px-3 py-2 font-bold">{s.sourceAccountId === account.id ? "Outgoing" : "Incoming"}</td>
-            <td className="px-3 py-2 font-bold">{s.amount} {s.currency}</td>
+            <td className="px-3 py-2"><Link href={`/settlements/${s.settlementId}`} className="font-mono text-[13px] text-link hover:underline">{s.settlementId.slice(0, 8)}</Link></td>
+            <td className="px-3 py-2 font-semibold">{s.sourceAccountId === account.id ? "Outgoing" : "Incoming"}</td>
+            <td className="px-3 py-2 font-semibold">{s.amount} {s.currency}</td>
             <td className="px-3 py-2"><StatusBadge status={s.status} /></td>
             <td className="whitespace-nowrap px-3 py-2">{new Date(s.updatedAt).toLocaleString()}</td>
           </tr>
