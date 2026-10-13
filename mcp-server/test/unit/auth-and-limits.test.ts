@@ -1,4 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { loadConfig } from "../../src/config.js";
+import { LabClient } from "../../src/http.js";
+import { createLogger } from "../../src/log.js";
 import { connect, type Harness } from "../helpers/harness.js";
 import { healthyLab, IDS, roleOf, type FakeLab } from "../helpers/fakeLab.js";
 
@@ -18,10 +21,33 @@ afterEach(async () => {
 });
 
 describe("persona tokens", () => {
-  it("uses READ_ONLY for reads, never ADMIN", async () => {
-    await start();
+  it("uses READ_ONLY for reads when MCP_READ_PERSONA=READ_ONLY", async () => {
+    await start({ env: { MCP_READ_PERSONA: "READ_ONLY" } });
     await h.call("get_account", { accountId: IDS.accountOwned });
     expect(lab.count("POST /lab/personas/READ_ONLY/token")).toBe(1);
+    expect(lab.count("POST /lab/personas/SUPPORT/token")).toBe(0);
+  });
+
+  it("rejects an unknown MCP_READ_PERSONA, and never accepts ADMIN for reads", () => {
+    expect(() => loadConfig({ MCP_READ_PERSONA: "ADMIN" })).toThrow(/SUPPORT or READ_ONLY/);
+    expect(() => loadConfig({ MCP_READ_PERSONA: "support" })).toThrow(/SUPPORT or READ_ONLY/);
+    expect(loadConfig({}).readPersona).toBe("SUPPORT");
+  });
+
+  it("never sends a read-persona token on a write, or an ADMIN token on a read", async () => {
+    await start();
+    const client = new LabClient(loadConfig({ LAB_BASE_URL: lab.baseUrl }), createLogger(() => {}));
+    await expect(client.post("/settlements", { role: "SUPPORT", body: {} })).rejects.toThrow(/refused to send/);
+    await expect(client.post("/settlements", { role: "READ_ONLY", body: {} })).rejects.toThrow(/refused to send/);
+    await expect(client.get("/accounts/x", { role: "ADMIN" })).rejects.toThrow(/refused to send/);
+    expect(lab.count("POST /lab/personas/SUPPORT/token") + lab.count("POST /lab/personas/READ_ONLY/token") + lab.count("POST /lab/personas/ADMIN/token")).toBe(0);
+    expect(lab.requests.filter((r) => r.path === "/settlements")).toHaveLength(0);
+  });
+
+  it("uses SUPPORT for reads by default, never ADMIN", async () => {
+    await start();
+    await h.call("get_account", { accountId: IDS.accountOwned });
+    expect(lab.count("POST /lab/personas/SUPPORT/token")).toBe(1);
     expect(lab.count("POST /lab/personas/ADMIN/token")).toBe(0);
   });
 
@@ -29,20 +55,20 @@ describe("persona tokens", () => {
     await start();
     await h.call("get_system_status");
     await h.call("list_open_reconciliation_mismatches");
-    expect(lab.count("POST /lab/personas/READ_ONLY/token") + lab.count("POST /lab/personas/ADMIN/token")).toBe(0);
+    expect(lab.count("POST /lab/personas/SUPPORT/token") + lab.count("POST /lab/personas/READ_ONLY/token") + lab.count("POST /lab/personas/ADMIN/token")).toBe(0);
   });
 
   it("reuses a token while it is valid", async () => {
     await start();
     await h.call("get_account", { accountId: IDS.accountOwned });
     await h.call("get_account", { accountId: IDS.accountOwned });
-    expect(lab.count("POST /lab/personas/READ_ONLY/token")).toBe(1);
+    expect(lab.count("POST /lab/personas/SUPPORT/token")).toBe(1);
   });
 
   it("shares one token fetch between concurrent calls", async () => {
     await start();
     await Promise.all([1, 2, 3, 4].map(() => h.call("get_account", { accountId: IDS.accountOwned })));
-    expect(lab.count("POST /lab/personas/READ_ONLY/token")).toBe(1);
+    expect(lab.count("POST /lab/personas/SUPPORT/token")).toBe(1);
   });
 
   it("refreshes the token before it expires", async () => {
@@ -52,10 +78,10 @@ describe("persona tokens", () => {
     await h.call("get_account", { accountId: IDS.accountOwned });
     clock += 60_000; // 60 s later: 40 s left, still outside the 30 s margin
     await h.call("get_account", { accountId: IDS.accountOwned });
-    expect(lab.count("POST /lab/personas/READ_ONLY/token")).toBe(1);
+    expect(lab.count("POST /lab/personas/SUPPORT/token")).toBe(1);
     clock += 20_000; // 80 s in: 20 s left, inside the margin
     await h.call("get_account", { accountId: IDS.accountOwned });
-    expect(lab.count("POST /lab/personas/READ_ONLY/token")).toBe(2);
+    expect(lab.count("POST /lab/personas/SUPPORT/token")).toBe(2);
     const used = lab.requests.filter((r) => r.path === `/accounts/${IDS.accountOwned}`).map((r) => r.headers.authorization);
     expect(new Set(used).size).toBe(2);
   });
@@ -72,7 +98,7 @@ describe("persona tokens", () => {
     });
     const r = await h.call("get_account", { accountId: IDS.accountOwned });
     expect(r.isError).toBeFalsy();
-    expect(lab.count("POST /lab/personas/READ_ONLY/token")).toBe(2);
+    expect(lab.count("POST /lab/personas/SUPPORT/token")).toBe(2);
   });
 
   it("gives up after one re-auth when the 401 persists", async () => {

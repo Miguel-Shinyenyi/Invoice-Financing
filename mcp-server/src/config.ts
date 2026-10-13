@@ -1,6 +1,11 @@
 export interface Config {
   baseUrl: URL;
   allowWrites: boolean;
+  /**
+   * Persona for reads through the real API. SUPPORT sees every row; READ_ONLY sees only its own
+   * accounts. Either token is sent on GET only. ADMIN is for writes only.
+   */
+  readPersona: ReadPersona;
   /** Default and maximum rows a list tool returns. */
   defaultLimit: number;
   maxLimit: number;
@@ -10,6 +15,8 @@ export interface Config {
   /** Longest wait before the single retry after a 429 or 503. */
   retryWaitCapMs: number;
 }
+
+export type ReadPersona = "SUPPORT" | "READ_ONLY";
 
 export const DEFAULT_BASE_URL = "http://127.0.0.1:8080";
 
@@ -30,8 +37,13 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   } catch {
     throw new Error("LAB_BASE_URL is not a valid URL");
   }
+  const rawPersona = (env.MCP_READ_PERSONA ?? "SUPPORT").trim();
+  if (rawPersona !== "SUPPORT" && rawPersona !== "READ_ONLY") {
+    throw new Error("MCP_READ_PERSONA must be SUPPORT or READ_ONLY");
+  }
   return {
     baseUrl,
+    readPersona: rawPersona,
     // Only the exact string "true" turns writes on. "1" or "yes" do not.
     allowWrites: env.MCP_ALLOW_WRITES === "true",
     defaultLimit: 20,
@@ -40,4 +52,15 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     requestTimeoutMs: intFrom(env.MCP_REQUEST_TIMEOUT_MS, 10_000, 500, 60_000, "MCP_REQUEST_TIMEOUT_MS"),
     retryWaitCapMs: 3_000,
   };
+}
+
+/**
+ * Writes need a Lab that accepts them. When the Lab reports its own read-only mode (public demo
+ * hosting), every write would be refused, so the write tools are left out instead of failing later.
+ */
+export function withLabMode(config: Config, labStatus: Record<string, unknown>): { config: Config; writesDroppedBecauseLabReadOnly: boolean } {
+  if (config.allowWrites && labStatus.readOnly === true) {
+    return { config: { ...config, allowWrites: false }, writesDroppedBecauseLabReadOnly: true };
+  }
+  return { config, writesDroppedBecauseLabReadOnly: false };
 }

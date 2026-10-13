@@ -108,6 +108,9 @@ async function main(): Promise<void> {
   const readServer = await startServer(false);
   const writeServer = cases.some((c) => c.writes) ? await startServer(true) : null;
   const results: CaseResult[] = [];
+  // An API error (no credit, bad key, rate limit) says nothing about the tools. It stops the run
+  // and is never recorded as a failed case.
+  let apiError: string | null = null;
   try {
     // Reads first, writes last, so a write case cannot change what a read case expects.
     const ordered = [...cases.filter((c) => !c.writes), ...cases.filter((c) => c.writes)];
@@ -131,6 +134,11 @@ async function main(): Promise<void> {
           answer: run.answer,
         });
       } catch (err) {
+        if (err instanceof Anthropic.APIError) {
+          const detail = (err.error as { error?: { message?: string } } | undefined)?.error?.message ?? err.message;
+          apiError = `HTTP ${err.status ?? "?"}: ${detail}`;
+          break;
+        }
         const message = err instanceof Error ? err.message : "unknown error";
         results.push({ id: c.id, title: c.title, pass: false, notes: [`FAIL runner error: ${message}`], tools: [], turns: 0, inputTokens: 0, outputTokens: 0, stopReason: "answered", answer: "", error: message });
       }
@@ -141,6 +149,11 @@ async function main(): Promise<void> {
   } finally {
     await readServer.close();
     await writeServer?.close();
+  }
+
+  if (apiError) {
+    console.error(`\nThe Anthropic API refused the call, so the evals did not run. No case was scored and no results file was written.\n  ${apiError}`);
+    process.exit(3);
   }
 
   const total = results.reduce((a, r) => a + r.inputTokens + r.outputTokens, 0);

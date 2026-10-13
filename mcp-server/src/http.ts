@@ -3,7 +3,7 @@ import { ToolError } from "./errors.js";
 import { redact, type Logger } from "./log.js";
 import { looksLikeLabStatus } from "./safety.js";
 
-export type Role = "READ_ONLY" | "ADMIN";
+export type Role = "READ_ONLY" | "SUPPORT" | "ADMIN";
 
 export interface HttpResult<T = unknown> {
   status: number;
@@ -104,6 +104,13 @@ export class LabClient {
   }
 
   private async authorised(method: string, path: string, options: RequestOptions) {
+    // Least privilege in code, not only by convention. SUPPORT can write in the engine, so a read
+    // persona token must never ride on anything but a GET, and ADMIN must never be used for a read.
+    if (options.role && (options.role === "ADMIN") === (method === "GET")) {
+      throw new ToolError("upstream_error", "The MCP server refused to send this call with that persona.", undefined, {
+        detail: `${options.role} with ${method}`,
+      });
+    }
     const headers: Record<string, string> = { Accept: "application/json", ...(options.headers ?? {}) };
     if (options.role) headers.Authorization = `Bearer ${await this.tokenFor(options.role)}`;
     return this.rawFetch(method, path, { ...options, headers });
@@ -212,7 +219,7 @@ export function mapStatus(status: number, data: unknown, retryAfter?: number, fa
     case 403:
       return new ToolError(
         "access_denied",
-        "The persona used for this call may not read this record. The READ_ONLY persona sees only its own accounts and their settlements and invoices.",
+        "The persona used for this call may not read this record. The READ_ONLY persona sees only its own accounts and their settlements and invoices. Set MCP_READ_PERSONA=SUPPORT for every row.",
       );
     case 404:
       return new ToolError("not_found", detail ?? "No record with that id.");

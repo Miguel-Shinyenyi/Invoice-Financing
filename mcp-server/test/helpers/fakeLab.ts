@@ -176,6 +176,7 @@ export function healthyLab(): FakeLab {
   lab.on("GET /lab/personas", { body: PERSONAS });
   lab.on("GET /lab/state-machines", { body: STATE_MACHINES });
   lab.on("POST /lab/personas/READ_ONLY/token", (r) => ({ body: issue(lab, "READ_ONLY", r) }));
+  lab.on("POST /lab/personas/SUPPORT/token", (r) => ({ body: issue(lab, "SUPPORT", r) }));
   lab.on("POST /lab/personas/ADMIN/token", (r) => ({ body: issue(lab, "ADMIN", r) }));
   lab.on("GET /lab/reconciliation/mismatches", { body: [MISMATCH_ROW] });
   lab.on("GET /lab/reconciliation/ledger-mismatches", { body: [LEDGER_MISMATCH_ROW] });
@@ -196,5 +197,5 @@ function issue(lab: FakeLab, role: string, _r: Recorded) {
 
 export function roleOf(authHeader: string | string[] | undefined): string {
   const h = String(authHeader ?? "");
-  return h.includes("ADMIN") ? "ADMIN" : h.includes("READ_ONLY") ? "READ_ONLY" : "none";
+  return h.includes("ADMIN") ? "ADMIN" : h.includes("SUPPORT") ? "SUPPORT" : h.includes("READ_ONLY") ? "READ_ONLY" : "none";
 }

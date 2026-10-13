@@ -72,7 +72,8 @@ Add `-e MCP_ALLOW_WRITES=true` to enable the three write tools. Or commit this a
 | Variable | Default | Meaning |
 |---|---|---|
 | `LAB_BASE_URL` | `http://127.0.0.1:8080` | The Lab backend. Refused if it is the staging host or does not answer as a Lab sandbox. |
-| `MCP_ALLOW_WRITES` | off | Only the exact value `true` registers the write tools. `1`, `yes` and `TRUE` do not. |
+| `MCP_ALLOW_WRITES` | off | Only the exact value `true` registers the write tools, and not even then if the Lab reports read-only mode. `1`, `yes` and `TRUE` do not. |
+| `MCP_READ_PERSONA` | `SUPPORT` | Persona for reads through the real API: `SUPPORT` (sees every row) or `READ_ONLY` (sees only its own two accounts). |
 | `MCP_MAX_RESPONSE_CHARS` | `24000` | Largest tool result. A longer one is cut and says so. |
 | `MCP_REQUEST_TIMEOUT_MS` | `10000` | Timeout for each call to the Lab. |
 | `ANTHROPIC_API_KEY` | none | Evals only. Read from the environment, never written to a file. |
@@ -86,15 +87,15 @@ cut list says "showing 20 of 134".
 
 | Tool | Kind | Returns |
 |---|---|---|
-| `get_system_status` | read | Lab health, the compressed timers, reset time, caps, per-service up or down, flow counters, the READ_ONLY persona's accounts. Start here. |
+| `get_system_status` | read | Lab health, the compressed timers, reset time, caps, per-service up or down, flow counters, the personas and the read persona in use. Start here. |
 | `get_settlement` | read | One settlement: status, amount, accounts, external reference, ledger entries, mismatches, and what the status means with the transitions read from the engine. |
-| `list_settlements` | read | Settlements from the read model, filtered by status. Limited to the READ_ONLY persona's own accounts. |
+| `list_settlements` | read | Settlements from the read model, filtered by status. Every settlement as SUPPORT (default); only the READ_ONLY persona's own with `MCP_READ_PERSONA=READ_ONLY`. |
 | `get_account` | read, **side effect** | Balance and ledger check. The engine records a ledger mismatch when the account is inconsistent, so call it once per account. |
-| `list_account_settlements` | read | An account's settlements. READ_ONLY persona's own accounts only. |
+| `list_account_settlements` | read | An account's settlements. Any account as SUPPORT; own accounts only as READ_ONLY. |
 | `list_open_reconciliation_mismatches` | read | Open settlement mismatches with the engine side, the external side and a derived kind. |
 | `list_ledger_mismatches` | read | Accounts whose stored balance disagrees with their entries: stored, computed, difference. |
 | `get_reconciliation_summary` | read | Open counts, recent runs, and stranded UNKNOWN settlements (Known gap 1). |
-| `get_invoice` | read | An invoice and its advance. READ_ONLY persona's own accounts only. |
+| `get_invoice` | read | An invoice and its advance. Any invoice as SUPPORT; none of the seeded ones as READ_ONLY. |
 | `explain_state_machine` | read | Settlement, invoice and advance states and transitions, read from the engine. |
 | `create_settlement` | **write** | Moves an amount between two accounts. Requires an `idempotencyKey` you supply. Same key and body returns the same settlement. |
 | `run_reconciliation` | **write** | Triggers one reconciliation run and returns its summary. |
@@ -110,7 +111,7 @@ Each one has a test in `test/unit/`.
 
 1. **Lab only.** On startup the server calls `GET /lab/status`. If the target does not answer as a Lab sandbox it exits with a reason.
 2. **Staging is refused** before any request. The forbidden host list is generated from the backend's own config (`settlement-engine.demo.forbidden-hosts`), and a test fails if the two drift. A DNS name that resolves to a forbidden host is refused too.
-3. **Personas, not secrets.** Tokens come from `POST /lab/personas/{role}/token`: READ_ONLY for reads, ADMIN for writes only. They live in memory, refresh before they expire, and never appear in a log or a result. The sandbox passwords the backend lists are dropped.
+3. **Personas, not secrets.** Tokens come from `POST /lab/personas/{role}/token`: SUPPORT for reads by default (set `MCP_READ_PERSONA=READ_ONLY` for the narrow view), ADMIN for writes only. A read-persona token is sent on GET only and an ADMIN token never on a GET, enforced in the client and tested. They live in memory, refresh before they expire, and never appear in a log or a result. The sandbox passwords the backend lists are dropped.
 4. **Writes are not registered** unless `MCP_ALLOW_WRITES=true`. A test proves they are absent from the tool list.
 5. **Capped results.** Rows default to 20, at most 100. The response size is capped. Truncation is always reported.
 6. **The Lab's limits are respected.** On a 429 or 503 the server waits as told (at most 3 seconds) and retries once. Then it returns a clear message with a retry hint. A write is never retried after a 503.

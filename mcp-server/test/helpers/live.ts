@@ -25,8 +25,8 @@ export const SKIP_NOTE =
   `Lab sandbox not reachable at ${LIVE_URL}. Integration tests skipped. ` +
   "Start it with: docker compose -f infra/docker-compose.lab.yml up -d";
 
-export async function liveClient(allowWrites: boolean) {
-  const config = loadConfig({ LAB_BASE_URL: LIVE_URL, MCP_ALLOW_WRITES: allowWrites ? "true" : "false" });
+export async function liveClient(allowWrites: boolean, readPersona: "SUPPORT" | "READ_ONLY" = "SUPPORT") {
+  const config = loadConfig({ LAB_BASE_URL: LIVE_URL, MCP_ALLOW_WRITES: allowWrites ? "true" : "false", MCP_READ_PERSONA: readPersona });
   const log = createLogger(() => {});
   const labClient = new LabClient(config, log);
   const built = createServer({ client: labClient, config, log });

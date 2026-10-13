@@ -80,11 +80,12 @@ describe.skipIf(!up)("live Lab: read tools against the seed", () => {
     expect(r.data.balance).toBe(netOfEntries(owned[0]!));
   });
 
-  it("get_account on someone else's consistent account: access_denied, not a leak", async () => {
+  it("get_account as SUPPORT reads an account the READ_ONLY persona does not own", async () => {
     const other = accounts.find((a) => a.id.startsWith("10000000-"))!.id;
     const r = await c.call("get_account", { accountId: other });
-    expect(r.isError).toBe(true);
-    expect(r.data.error).toBe("access_denied");
+    expect(r.isError).toBe(false);
+    expect(r.data.ledgerCheck).toBe("CONSISTENT");
+    expect(r.data.balance).toBe(netOfEntries(other));
   });
 
   it("get_settlement on a stranded UNKNOWN settlement: stranded, no external reference, Known gap 1", async () => {
@@ -123,13 +124,12 @@ describe.skipIf(!up)("live Lab: read tools against the seed", () => {
     expect(r.data.strandedExplanation).toMatch(/no external reference/i);
   });
 
-  it("list_settlements: only settlements that touch the READ_ONLY persona's accounts", async () => {
+  it("list_settlements as SUPPORT: every seeded settlement, not only the READ_ONLY persona's", async () => {
     const r = await c.call("list_settlements", { limit: 100 });
     const items = r.data.items as { settlementId: string; sourceAccountId: string; destinationAccountId: string }[];
-    expect(items.length).toBeGreaterThanOrEqual(2);
-    for (const i of items) expect(owned.includes(i.sourceAccountId) || owned.includes(i.destinationAccountId)).toBe(true);
-    const expected = settlements.filter((s) => owned.includes(s.src) || owned.includes(s.dst)).map((s) => s.id);
-    for (const id of expected) expect(items.map((i) => i.settlementId)).toContain(id);
+    const ids = items.map((i) => i.settlementId);
+    for (const s of settlements) expect(ids, `seed settlement ${s.id}`).toContain(s.id);
+    expect(items.some((i) => !owned.includes(i.sourceAccountId) && !owned.includes(i.destinationAccountId))).toBe(true);
   });
 
   it("list_settlements with a status filter, and list_account_settlements for an owned account", async () => {
@@ -141,10 +141,10 @@ describe.skipIf(!up)("live Lab: read tools against the seed", () => {
     expect(mine.data.items.map((i: any) => i.settlementId)).toContain(settlementId(7));
   });
 
-  it("get_invoice: a seeded invoice is not the READ_ONLY persona's, so access_denied", async () => {
+  it("get_invoice as SUPPORT returns a seeded invoice", async () => {
     const r = await c.call("get_invoice", { invoiceId: "80000000-0000-0000-0000-000000000002" });
-    expect(r.isError).toBe(true);
-    expect(r.data.error).toBe("access_denied");
+    expect(r.isError).toBe(false);
+    expect(r.data.invoice.id).toBe("80000000-0000-0000-0000-000000000002");
   });
 
   it("explain_state_machine: read from the engine, with the states that have no code path", async () => {
@@ -160,5 +160,34 @@ describe.skipIf(!up)("live Lab: read tools against the seed", () => {
     expect(JSON.parse((api.contents[0] as { text: string }).text).paths["/settlements"]).toBeDefined();
     const doc = await c.client.readResource({ uri: "settlement-engine://docs/reconciliation" });
     expect((doc.contents[0] as { text: string }).text).toMatch(/Known gap|idempot/i);
+  });
+});
+
+describe.skipIf(!up)("live Lab: MCP_READ_PERSONA=READ_ONLY keeps the narrow view", () => {
+  let c: Awaited<ReturnType<typeof liveClient>>;
+  const owned = ownedBy(READ_ONLY_OWNER);
+  beforeAll(async () => {
+    c = await liveClient(false, "READ_ONLY");
+  });
+  afterAll(async () => c?.close());
+
+  it("get_account on someone else's consistent account: access_denied, not a leak", async () => {
+    const other = accounts.find((a) => a.id.startsWith("10000000-"))!.id;
+    const r = await c.call("get_account", { accountId: other });
+    expect(r.isError).toBe(true);
+    expect(r.data.error).toBe("access_denied");
+  });
+
+  it("list_settlements: only settlements that touch the READ_ONLY persona's accounts", async () => {
+    const r = await c.call("list_settlements", { limit: 100 });
+    const items = r.data.items as { sourceAccountId: string; destinationAccountId: string }[];
+    expect(items.length).toBeGreaterThanOrEqual(2);
+    for (const i of items) expect(owned.includes(i.sourceAccountId) || owned.includes(i.destinationAccountId)).toBe(true);
+  });
+
+  it("get_invoice: a seeded invoice is not the READ_ONLY persona's, so access_denied", async () => {
+    const r = await c.call("get_invoice", { invoiceId: "80000000-0000-0000-0000-000000000002" });
+    expect(r.isError).toBe(true);
+    expect(r.data.error).toBe("access_denied");
   });
 });

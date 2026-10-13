@@ -72,6 +72,16 @@ function mismatchKind(internalState: unknown, externalState: unknown): string {
 
 export function registerReadTools(server: McpServer, ctx: ToolContext): void {
   const { client, config } = ctx;
+  const support = config.readPersona === "SUPPORT";
+  const READ_SCOPE = support
+    ? "Reads as the SUPPORT persona, which the engine lets see every settlement. "
+    : "Visibility is limited: this reads as the READ_ONLY persona, and the engine only shows that persona settlements that touch accounts it owns (see get_system_status). ";
+  const ACCOUNT_SCOPE = support
+    ? "Access: reads as the SUPPORT persona, which may read any account. "
+    : "Access: the READ_ONLY persona may read only accounts it owns (see get_system_status); other accounts return access_denied. ";
+  const INVOICE_SCOPE = support
+    ? "Access: reads as the SUPPORT persona, which may read any invoice. "
+    : "Access: the READ_ONLY persona may read only invoices of business accounts it owns. In the seed data none of the invoices belong to it, so expect access_denied for seeded invoice ids; that is the engine's row-level rule, not a fault. ";
 
   defineTool(server, ctx, {
     name: "get_system_status",
@@ -103,6 +113,7 @@ export function registerReadTools(server: McpServer, ctx: ToolContext): void {
         summary: `Lab sandbox is ${down.length === 0 ? "healthy: all " + services.length + " services up" : "degraded: down: " + down.join(", ")}; read-only mode ${s.readOnly ? "on" : "off"}.`,
         data: {
           sandbox: true,
+          readPersona: config.readPersona,
           now: s.now,
           readOnlyMode: s.readOnly,
           timeCompression: s.timeCompression,
@@ -187,7 +198,7 @@ export function registerReadTools(server: McpServer, ctx: ToolContext): void {
     title: "List settlements",
     description:
       "Lists settlements from the engine's read model, newest first, optionally filtered by status (for example CONFIRMED or UNKNOWN; see explain_state_machine for the names). Returns id, accounts, amount, currency, status and update time per row, with a 'showing N of M' notice when the list is cut. " +
-      "Visibility is limited: this uses the READ_ONLY persona, and the engine only shows that persona settlements that touch accounts it owns (see get_system_status). For a sandbox-wide view of problems use get_reconciliation_summary. " +
+      READ_SCOPE + "For a sandbox-wide view of problems use get_reconciliation_summary. " +
       "Next: get_settlement for one row.",
     input: {
       status: z
@@ -202,7 +213,7 @@ export function registerReadTools(server: McpServer, ctx: ToolContext): void {
     async run({ status, limit, page }) {
       const size = resolveLimit(limit, config);
       const res = await client.get("/settlements", {
-        role: "READ_ONLY",
+        role: ctx.config.readPersona,
         query: { status, page: page ?? 0, size },
       });
       const p = readPage(res.data);
@@ -217,7 +228,7 @@ export function registerReadTools(server: McpServer, ctx: ToolContext): void {
           totalPages: p.totalPages,
           nextPage: p.page + 1 < p.totalPages ? p.page + 1 : null,
           notice: fit.notice ?? null,
-          visibility: "Only settlements touching accounts owned by the READ_ONLY persona.",
+          visibility: ctx.config.readPersona === "SUPPORT" ? "All settlements (SUPPORT persona)." : "Only settlements touching accounts owned by the READ_ONLY persona.",
         },
       };
     },
@@ -231,13 +242,13 @@ export function registerReadTools(server: McpServer, ctx: ToolContext): void {
       "Returns an account's balance and currency and the result of the ledger consistency check (stored balance against the net of its ledger entries). " +
       "NOT purely read-only: the engine runs the ledger check on every read of the account, and when the stored balance disagrees with the entries it records or refreshes a ledger mismatch for manual review. Reading a drifted account creates that record. Call it once per account and do not poll it. " +
       "When the account is inconsistent the result has ledgerCheck MISMATCH with storedBalance, computedBalance and the difference, instead of an error. " +
-      "Access: the READ_ONLY persona may read only accounts it owns (see get_system_status). Any other consistent account returns access_denied. A drifted account still shows its mismatch, because the engine checks before it checks ownership. " +
+      ACCOUNT_SCOPE + "A drifted account still shows its mismatch, because the engine checks before it checks ownership. " +
       "Next: list_ledger_mismatches for the open record, list_account_settlements for history.",
     input: { accountId: guid("Account id") },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     async run({ accountId }) {
       try {
-        const res = await client.get<Json>(`/accounts/${encodeURIComponent(accountId)}`, { role: "READ_ONLY" });
+        const res = await client.get<Json>(`/accounts/${encodeURIComponent(accountId)}`, { role: ctx.config.readPersona });
         return {
           summary: `Account ${accountId} balance ${String(res.data.balance)} ${String(res.data.currency)}; ledger check passed.`,
           data: {
@@ -282,14 +293,14 @@ export function registerReadTools(server: McpServer, ctx: ToolContext): void {
     title: "List an account's settlements",
     description:
       "Lists the settlements where an account is the source or the destination, from the read model, with a 'showing N of M' notice. " +
-      "Access: the READ_ONLY persona may read only accounts it owns (see get_system_status); other accounts return access_denied. Does not run the ledger check. " +
+      ACCOUNT_SCOPE + "Does not run the ledger check. " +
       "Next: get_settlement for one row.",
     input: { accountId: guid("Account id"), limit: limitField, page: pageField },
     annotations: READ_ANNOTATIONS,
     async run({ accountId, limit, page }) {
       const size = resolveLimit(limit, config);
       const res = await client.get(`/accounts/${encodeURIComponent(accountId)}/settlements`, {
-        role: "READ_ONLY",
+        role: ctx.config.readPersona,
         query: { page: page ?? 0, size },
       });
       const p = readPage(res.data);
@@ -430,12 +441,12 @@ export function registerReadTools(server: McpServer, ctx: ToolContext): void {
     title: "Get an invoice",
     description:
       "Returns an invoice and its advance: customer reference, amount, due date, status, and the advance with its fee, the disbursing settlement id and the repaying settlement id (null until repaid). " +
-      "Access: the READ_ONLY persona may read only invoices of business accounts it owns. In the seed data none of the invoices belong to it, so expect access_denied for seeded invoice ids; that is the engine's row-level rule, not a fault. " +
+      INVOICE_SCOPE +
       "Next: get_settlement with the disbursedSettlementId, or explain_state_machine for invoice and advance states.",
     input: { invoiceId: guid("Invoice id") },
     annotations: READ_ANNOTATIONS,
     async run({ invoiceId }) {
-      const res = await client.get<Json>(`/invoices/${encodeURIComponent(invoiceId)}`, { role: "READ_ONLY" });
+      const res = await client.get<Json>(`/invoices/${encodeURIComponent(invoiceId)}`, { role: ctx.config.readPersona });
       const advance = (res.data.advance ?? null) as Json | null;
       return {
         summary: `Invoice ${invoiceId} is ${String(res.data.status)}${advance ? ", advance " + String(advance.status) : ", no advance"}.`,

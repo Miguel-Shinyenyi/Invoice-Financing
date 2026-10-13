@@ -16,13 +16,13 @@ Ten read tools, three write tools. The write tools are not registered unless `MC
 |---|---|---|---|
 | `get_system_status` | read | `/lab/status`, `/lab/health`, `/lab/system`, `/lab/personas` | none |
 | `get_settlement` | read | `/lab/settlements/{id}/inspect`, `/lab/state-machines` | none |
-| `list_settlements` | read | `GET /settlements` | READ_ONLY |
-| `get_account` | read, side effect | `GET /accounts/{id}`, then `/lab/reconciliation/ledger-mismatches` on a mismatch | READ_ONLY |
-| `list_account_settlements` | read | `GET /accounts/{id}/settlements` | READ_ONLY |
+| `list_settlements` | read | `GET /settlements` | SUPPORT (default) |
+| `get_account` | read, side effect | `GET /accounts/{id}`, then `/lab/reconciliation/ledger-mismatches` on a mismatch | SUPPORT (default) |
+| `list_account_settlements` | read | `GET /accounts/{id}/settlements` | SUPPORT (default) |
 | `list_open_reconciliation_mismatches` | read | `/lab/reconciliation/mismatches` | none |
 | `list_ledger_mismatches` | read | `/lab/reconciliation/ledger-mismatches` | none |
 | `get_reconciliation_summary` | read | `/lab/reconciliation/summary`, `/stranded`, `/runs` | none |
-| `get_invoice` | read | `GET /invoices/{id}` | READ_ONLY |
+| `get_invoice` | read | `GET /invoices/{id}` | SUPPORT (default) |
 | `explain_state_machine` | read | `/lab/state-machines` | none |
 | `create_settlement` | write | `POST /settlements` with `Idempotency-Key` | ADMIN |
 | `run_reconciliation` | write | `POST /reconciliation/runs` | ADMIN |
@@ -44,7 +44,7 @@ Each has a unit test (`test/unit/safety.test.ts`, `auth-and-limits.test.ts`, `le
 
 1. Startup calls `GET /lab/status` and refuses to run unless the answer is a Lab status snapshot. Pointing it at the Lab's own frontend gave a refusal.
 2. The staging host is refused before any request. The list is generated into `src/generated/forbiddenHosts.ts` from `application-demo.yml` and the `LabProperties` default, by `scripts/sync-forbidden-hosts.ts`. `forbiddenHostsSync.test.ts` fails if the generated file differs from either source, or if the two sources differ from each other. A DNS name that resolves to a forbidden host is refused.
-3. READ_ONLY for reads, ADMIN for writes. Tokens are in memory, refreshed 30 s before expiry, re-fetched once after a 401, never logged or returned. The sandbox passwords in `GET /lab/personas` are dropped.
+3. SUPPORT for reads by default, READ_ONLY if `MCP_READ_PERSONA=READ_ONLY`, ADMIN for writes only. The client refuses to send a read-persona token on anything but a GET, and an ADMIN token on a GET (SUPPORT can write in the engine, so the limit is in code). Tokens are in memory, refreshed 30 s before expiry, re-fetched once after a 401, never logged or returned. The sandbox passwords in `GET /lab/personas` are dropped.
 4. Write tools are absent from the tool list by default, and a call by name fails with no request sent.
 5. List results default to 20, at most 100, and the response size is capped. Truncation is reported as "showing N of M".
 6. A 429 (and a 503 on a read) is retried once after the wait the Lab asks for, at most 3 s. Then the agent gets a rate-limit message with a retry hint. A write is retried only after a 429, which the Lab sends before doing any work.
@@ -52,9 +52,9 @@ Each has a unit test (`test/unit/safety.test.ts`, `auth-and-limits.test.ts`, `le
 
 ### Tests and evals
 
-- **Unit tests** (99): fake HTTP backend with fixtures copied from real Lab responses, an in-memory MCP client, and a scripted fake model for the eval loop.
-- **Integration tests** (31): the live Lab, skipped with a message when it is not reachable. Expected values are parsed from `lab/seed/lab-seed.sql` and `scenarios.json`. They cover every read tool, the write tools, the real server over stdio, and a check that each eval case's checker passes a right answer and fails a wrong one.
-- **Evals**: `mcp-server/evals/`. Seven cases from the seed with exact expected answers read from the database through the Lab's data browser, not through the MCP server. Limits: 10 cases, 8 turns, 60,000 input and 4,000 output tokens per case, a cost estimate printed first and `--yes` required. They have not been run against a model yet (see Open questions).
+- **Unit tests** (104): fake HTTP backend with fixtures copied from real Lab responses, an in-memory MCP client, and a scripted fake model for the eval loop.
+- **Integration tests** (34): the live Lab, skipped with a message when it is not reachable. Expected values are parsed from `lab/seed/lab-seed.sql` and `scenarios.json`. They cover every read tool, the write tools, the real server over stdio, and a check that each eval case's checker passes a right answer and fails a wrong one.
+- **Evals**: `mcp-server/evals/`. Seven cases from the seed with exact expected answers read from the database through the Lab's data browser, not through the MCP server. Limits: 10 cases, 8 turns, 60,000 input and 4,000 output tokens per case, a cost estimate printed first and `--yes` required. One attempt on 2026-10-13 was refused by the Anthropic API for lack of account credit, so no case has been scored (see Open questions).
 
 Counts and commands are in `testing.md`. The MCP safety rules are summarised in `security.md`.
 
@@ -65,7 +65,7 @@ Counts and commands are in `testing.md`. The MCP safety rules are summarised in 
 | 2026-10-13 | Branch `feature/mcp-server` was cut from `origin/main`, not `dev` | `dev` has no Lab code (`core/lab`, `lab/seed`, the compose file): the Lab was merged to `main`, and `dev` is an ancestor of `main`. The server needs the Lab |
 | 2026-10-13 | Target the Lab sandbox only, with a startup check and a staging refusal | The Lab has public personas and deterministic data, so tool results and evals are repeatable, and nothing real can be touched |
 | 2026-10-13 | The forbidden host list is generated from the backend config and guarded by a sync test, not read at runtime | The server may run outside the repo. The same pattern as `AlertRulesSyncTest`: a copy is allowed only if a test proves it matches |
-| 2026-10-13 | Reads that need the whole sandbox use the tokenless `/lab/**` views; real-API reads use the READ_ONLY persona | The engine's row-level rule hides most seeded data from READ_ONLY, and reconciliation endpoints need ADMIN or SUPPORT. The spec forbids ADMIN for reads |
+| 2026-10-13 | Reads that need the whole sandbox use the tokenless `/lab/**` views; real-API reads use the SUPPORT persona, or READ_ONLY with `MCP_READ_PERSONA` | The engine's row-level rule hides most seeded data from READ_ONLY. Miguel chose to adapt the "READ_ONLY for reads" rule. SUPPORT sees every row but can also write, so the client sends a read-persona token on GET only. ADMIN stays for writes |
 | 2026-10-13 | `get_settlement` uses `/lab/settlements/{id}/inspect` | It is the only endpoint that returns ledger entries, and it works for any settlement |
 | 2026-10-13 | `get_system_status` uses `/lab/health` for up or down | `/lab/system` returns flow counters, not service health |
 | 2026-10-13 | A drifted account is a normal `MISMATCH` result, not an error | It is a finding. The agent needs stored, computed and the difference, which the 500 body does not give as fields |
@@ -80,13 +80,15 @@ Counts and commands are in `testing.md`. The MCP safety rules are summarised in 
 | 2026-10-13 | The idempotency eval executes the first `create_settlement` for real and reports a timeout to the agent | That is what a lost response looks like: the work happened and the answer did not arrive |
 | 2026-10-13 | The eval model and prices are environment variables | The model can change without a code edit. The default prices are assumptions and the runner says so |
 | 2026-10-13 | Streamable HTTP is out of scope | Stdio is enough for Claude Desktop and Claude Code. HTTP would need auth and hosting decisions |
+| 2026-10-13 | Write tools are dropped when `/lab/status` reports `readOnly: true` | A read-only Lab refuses every write. Leaving the tools out is clearer than failing each call |
+| 2026-10-13 | Writes against a public Lab are allowed (Miguel's decision) with the flag off by default | The Lab holds fake data and resets every 30 min. Recommended: keep `MCP_ALLOW_WRITES` off in shared configs, and prefer a local Lab for the evals, since the idempotency and resolve cases change state other visitors would see |
+| 2026-10-13 | A runner API error stops the evals and is not recorded as a failed case | The first attempt hit a credit-balance error on all 7 cases and printed FAIL. That says nothing about the tools |
 
 ## Open questions
 
-- **Base branch.** The prompt said branch off `dev`. `dev` cannot build this component, so it was cut from `main`. Should `dev` be fast-forwarded to `main` first?
-- **READ_ONLY visibility.** The READ_ONLY persona sees two accounts. `list_settlements`, `get_account`, `list_account_settlements` and `get_invoice` are therefore narrow on the seed data (every seeded invoice returns access_denied). Using the SUPPORT persona for reads would widen them but breaks the "ADMIN only for writes, READ_ONLY for reads" rule as written. Which should win?
+- **Base branch.** `dev` cannot build this component, so the branch was cut from `main`. Fast-forwarding `dev` is not a priority (Miguel, 2026-10-13).
 - **No `kind` on mismatches.** Should the engine add one? Adding it would be an engine change, which this component may not make.
-- **Evals have not run.** They need `ANTHROPIC_API_KEY`, which was not available when this was built. The default model `claude-sonnet-5-5` and the default prices are unverified until a first run.
-- **Writes against a public Lab.** `MCP_ALLOW_WRITES=true` changes shared state that other visitors see until the next reset (30 min). Is that acceptable, or should writes require the Lab to be a private instance?
+- **Evals have not been scored.** `ANTHROPIC_API_KEY` is set in Miguel's `.zshrc`. On 2026-10-13 the API answered every call with "credit balance is too low" (HTTP 400), so no model ran and no tokens were spent. They need credit on that account. The default model `claude-sonnet-5-5` and the default prices are unverified until a first run.
+- **Writes against a public Lab.** Allowed by Miguel. `MCP_ALLOW_WRITES=true` changes shared state that other visitors see until the next reset (30 min). Open: should the public Lab's reset interval be shortened, or the Lab's own rate limit applied per MCP session?
 - **Docs in the build.** `reconciliation.md` and `backend.md` are copied into `dist/docs` at build time. A published package would need them bundled. Not decided because publishing is out of scope.
 - **Where the public sandbox runs** is still open (see `lab.md`). The default `LAB_BASE_URL` assumes a local stack.

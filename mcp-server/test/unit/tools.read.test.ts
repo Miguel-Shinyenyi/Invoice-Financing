@@ -173,7 +173,7 @@ describe("list tools: truncation is always reported", () => {
     expect(req.query.get("status")).toBe("UNKNOWN");
     expect(req.query.get("size")).toBe("5");
     expect(req.query.get("page")).toBe("1");
-    expect(roleOf(req.headers.authorization)).toBe("READ_ONLY");
+    expect(roleOf(req.headers.authorization)).toBe("SUPPORT");
     expect(d.totalMatching).toBe(134);
     expect(d.page).toBe(1);
     expect(d.items).toHaveLength(5);
@@ -191,7 +191,7 @@ describe("get_account", () => {
 
   it("returns the balance and a passed ledger check for an owned account", async () => {
     lab.on(`GET /accounts/${IDS.accountOwned}`, (req) => ({
-      body: roleOf(req.headers.authorization) === "READ_ONLY" ? { id: IDS.accountOwned, ownerId: "o", balance: 4950.0, currency: "USD", createdAt: "x" } : { status: 401 },
+      body: roleOf(req.headers.authorization) === "SUPPORT" ? { id: IDS.accountOwned, ownerId: "o", balance: 4950.0, currency: "USD", createdAt: "x" } : { status: 401 },
     }));
     const d = h.data(await h.call("get_account", { accountId: IDS.accountOwned })) as any;
     expect(d.balance).toBe(4950);
